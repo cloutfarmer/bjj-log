@@ -88,3 +88,23 @@
   white-space: pre-wrap;
   color: var(--text);
 }
+
+.collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.expandBtn:hover {
+  text-decoration: underline;
+}

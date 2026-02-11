@@ -15,14 +15,20 @@ function formatDateHeading(dateStr) {
   return `${dayName}, ${MONTH_NAMES[m - 1]} ${d}, ${y}`;
 }
 
+const PREVIEW_LINES = 6;
+
 export default function JournalEntry({ selectedDate, savedText, onSave }) {
   const [text, setText] = useState(savedText);
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setText(savedText);
     setEditing(false);
+    setExpanded(false);
   }, [savedText, selectedDate]);
+
+  const isLong = savedText.split("\n").length > PREVIEW_LINES || savedText.length > 400;
 
   const hasContent = savedText.length > 0;
 
@@ -69,7 +75,24 @@ export default function JournalEntry({ selectedDate, savedText, onSave }) {
       ) : (
         <>
           {hasContent ? (
-            <div className={styles.entryText}>{savedText}</div>
+            <>
+              <div
+                className={
+                  styles.entryText +
+                  (!expanded && isLong ? ` ${styles.collapsed}` : "")
+                }
+              >
+                {savedText}
+              </div>
+              {isLong && (
+                <button
+                  className={styles.expandBtn}
+                  onClick={() => setExpanded((e) => !e)}
+                >
+                  {expanded ? "Show less" : "Show more..."}
+                </button>
+              )}
+            </>
           ) : (
             <p className={styles.placeholder}>No entry for this day yet.</p>
           )}
