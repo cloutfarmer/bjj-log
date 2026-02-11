@@ -1,0 +1,93 @@
+.calendar {
+  width: 100%;
+  max-width: 400px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.monthTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.15s;
+}
+
+.navBtn:hover {
+  background: var(--bg-hover);
+}
+
+.todayLabel {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--today);
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.emptyCell {
+  aspect-ratio: 1;
+}
+
+.dayCell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.dayCell:hover {
+  background: var(--bg-hover);
+}
+
+.today {
+  border-color: var(--today);
+  background: var(--today-dim);
+}
+
+.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.hasEntry::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
