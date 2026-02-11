@@ -2,53 +2,76 @@
 
 ## Project Overview
 
-BJJ-Log is a Brazilian Jiu-Jitsu training log application built with Next.js (App Router). The project was bootstrapped with `create-next-app` and is in its initial setup phase.
+BJJ-Log is a personal Brazilian Jiu-Jitsu training journal. It lets the user select a day from a monthly calendar and write/read journal entries about what they learned in training.
 
 ## Tech Stack
 
-- **Framework**: Next.js (App Router — `app/` directory)
-- **Language**: JavaScript (`app/page.js`)
-- **Font**: Geist via `next/font`
+- **Framework**: Next.js 15 (App Router)
+- **Language**: JavaScript
+- **Styling**: CSS Modules + CSS custom properties (dark theme)
+- **Storage**: Browser localStorage (key: `bjj-log-entries`)
 - **Deployment target**: Vercel
 
 ## Project Structure
 
 ```
 bjj-log/
-├── README.md          # Next.js bootstrap docs
-├── CLAUDE.md          # This file — AI assistant guidance
-└── app/               # (to be created) Next.js App Router pages and layouts
-    └── page.js        # Main entry page
+├── app/
+│   ├── components/
+│   │   ├── Calendar.js            # Monthly calendar grid with navigation
+│   │   ├── Calendar.module.css
+│   │   ├── JournalEntry.js        # Read/write journal entry for a selected day
+│   │   └── JournalEntry.module.css
+│   ├── globals.css                # CSS variables, resets, dark theme
+│   ├── layout.js                  # Root layout (metadata)
+│   ├── page.js                    # Main page — state, localStorage, wires components
+│   └── page.module.css
+├── package.json
+├── next.config.mjs
+├── jsconfig.json                  # Path alias: @/* → ./*
+└── CLAUDE.md
 ```
 
-> **Note**: The project currently contains only README.md. The full Next.js scaffold
-> (package.json, app/, public/, etc.) has not yet been committed.
-
-## Development Commands
+## Commands
 
 ```bash
-npm run dev     # Start development server on http://localhost:3000
-npm run build   # Production build
-npm run start   # Start production server
-npm run lint    # Run linter (if configured)
+npm run dev     # Start dev server at http://localhost:3000
+npm run build   # Production build (use to verify no errors)
+npm run start   # Serve production build
+npm run lint    # ESLint
 ```
 
-## Conventions
+## Architecture & Conventions
 
-### Code Style
-- Use the Next.js App Router pattern (layouts, pages, loading, error boundaries in `app/`)
-- Prefer functional React components
-- Use `next/font` for font loading (Geist is the chosen font)
+### Data model
+Entries are stored as a flat JSON object in localStorage:
+```json
+{ "2026-02-11": "Learned a new sweep from half guard..." }
+```
+Date keys use `YYYY-MM-DD` format.
 
-### File Naming
-- Pages and layouts follow Next.js App Router conventions: `page.js`, `layout.js`, `loading.js`, `error.js`
-- Components should be PascalCase (e.g., `TrainingLog.js`)
+### Component patterns
+- All interactive components are client components (`"use client"`)
+- State lives in `page.js` and is passed down as props
+- CSS Modules for component-scoped styles; global CSS variables in `globals.css`
+
+### Styling
+- Dark theme by default (CSS custom properties in `:root`)
+- Key variables: `--bg`, `--bg-card`, `--border`, `--text`, `--text-muted`, `--accent`, `--today`
+- System font stack (no external font dependencies)
+
+### Calendar
+- Shows one month at a time with prev/next navigation
+- Highlights today (green border) and selected date (blue border)
+- Blue dot indicator on days that have a journal entry
 
 ### Git
 - `master` is the default branch
-- Feature branches use the `claude/` prefix for AI-assisted development
+- Feature branches use `claude/` prefix for AI-assisted development
 
 ## Key Decisions
 
-- **App Router over Pages Router**: The project uses the modern Next.js App Router (`app/` directory), not the legacy `pages/` directory
-- **JavaScript**: The project references `.js` files, not `.ts` — TypeScript is not currently in use
+- **localStorage over a database**: Sole-user app, keeps things simple with no backend. Can migrate to a DB later.
+- **App Router**: Modern Next.js pattern (`app/` directory)
+- **No TypeScript yet**: Started with JS for speed; can adopt TS when complexity warrants it
+- **No external UI libraries**: Plain CSS Modules to stay lightweight
