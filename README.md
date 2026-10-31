@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BJJ Log
 
-## Getting Started
+A private Brazilian jiu-jitsu training journal built with Next.js, React, TypeScript, and Neon Postgres.
 
-First, run the development server:
+Live journal: https://your-deployment.example (password required).
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill in `.env.local` with your development database connection, journal password, and session secret. Use a separate development database; local saves, migrations, and tests can change data. Never commit credentials.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+npm run db:migrate
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open http://localhost:3000. Migration setup and browser-note import instructions are in [Neon setup](docs/NEON.md).
 
-## Learn More
+## Branches and releases
 
-To learn more about Next.js, take a look at the following resources:
+- `dev`: integration branch for ongoing development. Start feature branches here and merge reviewed work back here.
+- `prod`: release branch for verified versions approved for production.
+- `main`: retained as the existing repository history/default branch until the remote default branch is deliberately changed.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Branch names alone do not deploy the app. See [the development and release workflow](docs/WORKFLOW.md) for commands, checks, and remote setup.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Verification
 
-## Deploy on Vercel
+```bash
+npm run typecheck
+npm run lint
+npm run build
+npm audit
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Run `npm run test:e2e` against an isolated test database with the environment described in [Neon setup](docs/NEON.md). Review audit findings before a commit; avoid automatic forced dependency upgrades.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Where to make changes
+
+| Area | Start here |
+| --- | --- |
+| Journal UI and editor | `app/components/Journal.tsx`, `app/components/JournalEntry.tsx` |
+| Calendar | `app/components/Calendar.tsx` |
+| Shared entry attributes | `app/types.ts` |
+| API requests | `app/api/entries/route.ts` |
+| Database reads and writes | `lib/entries.ts`, `lib/db.ts` |
+| Database schema changes | `db/migrations/` |
+| Login and sessions | `lib/auth.ts`, `app/api/login/route.ts` |
+| Browser tests | `tests/storage.spec.ts` |
+
+For an entry attribute such as gi/no-gi, follow it through the shared type, editor, API validation, database queries, and migration. See [the documentation index](docs/README.md) for setup and learning guides.

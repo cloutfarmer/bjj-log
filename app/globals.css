@@ -17,6 +17,11 @@
   --accent-dim: #1e3a5f;
   --today: #22c55e;
   --today-dim: #14532d;
+  /* Gi and no-gi get hues of their own so a single dot reads at a glance. */
+  --gi: #a855f7;
+  --gi-dim: #3b1d5e;
+  --nogi: #f59e0b;
+  --nogi-dim: #4a3108;
 }
 
 html,

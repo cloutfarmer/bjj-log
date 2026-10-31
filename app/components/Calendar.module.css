@@ -91,3 +91,48 @@
   border-radius: 50%;
   background: var(--accent);
 }
+
+/* The same dot, tinted by attire. Entries with no attire recorded keep the
+   default colour above, so older notes look exactly as they did before. */
+
+.giDot::after {
+  background: var(--gi);
+}
+
+.nogiDot::after {
+  background: var(--nogi);
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.swatchGi,
+.swatchNogi,
+.swatchPlain {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.swatchGi {
+  background: var(--gi);
+}
+
+.swatchNogi {
+  background: var(--nogi);
+}
+
+.swatchPlain {
+  background: var(--accent);
+}

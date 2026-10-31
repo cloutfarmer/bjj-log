@@ -20,3 +20,18 @@ npm-debug.log*
 
 # vercel
 .vercel
+
+# TypeScript build cache
+*.tsbuildinfo
+.neon
+
+.env
+.env.*
+!.env.example
+/playwright-report/
+/test-results/
+
+/.next-dev/
+.env*
+
+!.env.example

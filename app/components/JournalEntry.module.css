@@ -75,7 +75,8 @@
 }
 
 .editBtn {
-  margin-top: 12px;
+  display: block;
+  margin-top: 16px;
 }
 
 .entryText {
@@ -97,6 +98,7 @@
 }
 
 .expandBtn {
+  display: block;
   background: none;
   border: none;
   color: var(--accent);
@@ -107,4 +109,95 @@
 
 .expandBtn:hover {
   text-decoration: underline;
+}
+
+/* Session type pills */
+
+.sessionSection {
+  margin-bottom: 12px;
+}
+
+.sessionLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.sessionPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.pill:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.pillActive {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pillActive:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.pillStatic {
+  cursor: default;
+}
+
+/* Gi / no-gi: same pill geometry as session types, but its own colours so the
+   two kinds of information never look like the same kind of tag. */
+
+.attireRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.attireGi.pillActive,
+.attireGi.pillActive:hover {
+  background: var(--gi-dim);
+  border-color: var(--gi);
+  color: var(--gi);
+}
+
+.attireNogi.pillActive,
+.attireNogi.pillActive:hover {
+  background: var(--nogi-dim);
+  border-color: var(--nogi);
+  color: var(--nogi);
+}
+
+.attireGi:hover {
+  border-color: var(--gi);
+}
+
+.attireNogi:hover {
+  border-color: var(--nogi);
+}
+
+.attireHint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
 }

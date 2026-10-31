@@ -1,0 +1,12 @@
+# Secrets are configured as Vercel environment variables, never uploaded as files.
+.env
+.env.*
+.neon
+.git
+.next
+.next-dev
+node_modules
+playwright-report
+test-results
+.agents
+.codex
