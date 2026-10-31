@@ -1,5 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": [
+    "iad1"
+  ],
+  "buildCommand": "node scripts/check-deployment.mjs && npm run build",
+  "git": {
+    "deploymentEnabled": {
+      "*": false,
+      "prod": true
+    }
+  }
 }

@@ -26,7 +26,7 @@ Open http://localhost:3000. Migration setup and browser-note import instructions
 - `prod`: release branch for verified versions approved for production.
 - `main`: retained as the existing repository history/default branch until the remote default branch is deliberately changed.
 
-Branch names alone do not deploy the app. See [the development and release workflow](docs/WORKFLOW.md) for commands, checks, and remote setup.
+Deploy with `npm run deploy:prod` from a clean, published `prod` checkout. Branch names alone do not deploy the app. See [the development and release workflow](docs/WORKFLOW.md) for commands, checks, and remote setup.
 
 ## Verification
 
