@@ -8,7 +8,8 @@ async function signIn(page: Page) {
   await page.getByLabel("Your private journal password").fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
-  await expect(page.getByText("Select a day to view or add a journal entry.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Expand month" })).toBeVisible();
+  await page.getByRole("button", { name: "Expand month" }).click();
 }
 
 test("private access rejects anonymous, incorrect-password and cross-origin requests", async ({ page, request, baseURL }) => {
@@ -45,13 +46,14 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
   };
   try {
     await page.getByRole("button", { name: String(Number(date.slice(-2))), exact: true }).click();
-    await page.getByRole("button", { name: "Add Entry", exact: true }).click();
+    await expect(page.getByLabel("Training notes")).toBeVisible();
     await page.getByLabel("Training notes").fill(marker);
     await page.getByRole("button", { name: "Class", exact: true }).click();
     await page.getByRole("button", { name: "Gi", exact: true }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Saved to your journal");
     await page.reload();
+    await page.getByRole("button", { name: "Expand month" }).click();
     await page.getByRole("button", { name: String(Number(date.slice(-2))), exact: true }).click();
     await expect(page.getByText(marker, { exact: true })).toBeVisible();
     await expect(page.getByText("Gi", { exact: true })).toBeVisible();
@@ -88,6 +90,7 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
     const repeat = await page.request.post("/api/entries/import", { headers, data: legacy });
     expect(await repeat.json()).toEqual({ imported: 0 });
 
+    await page.getByRole("button", { name: "Expand month" }).click();
     await page.getByRole("button", { name: String(Number(date.slice(-2))), exact: true }).click();
     await page.getByRole("button", { name: "Edit Entry", exact: true }).click();
     await page.getByLabel("Training notes").fill("");

@@ -9,6 +9,7 @@ import type { Attire, JournalEntryData } from "../types";
 interface JournalEntryProps {
   selectedDate: string | null;
   savedEntry: JournalEntryData;
+  onDirtyChange: (dirty: boolean) => void;
   onSave: (date: string, entry: JournalEntryData) => Promise<void>;
 }
 
@@ -35,7 +36,7 @@ function formatDateHeading(dateStr: string) {
 
 const PREVIEW_LINES = 6;
 
-export default function JournalEntry({ selectedDate, savedEntry, onSave }: JournalEntryProps) {
+export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirtyChange }: JournalEntryProps) {
   const [text, setText] = useState(savedEntry.text);
   const [sessionTypes, setSessionTypes] = useState(savedEntry.sessionTypes);
   const [attire, setAttire] = useState<Attire | null>(savedEntry.attire);
@@ -48,10 +49,14 @@ export default function JournalEntry({ selectedDate, savedEntry, onSave }: Journ
     setText(savedEntry.text);
     setSessionTypes(savedEntry.sessionTypes);
     setAttire(savedEntry.attire);
-    setEditing(false);
+    setEditing(!savedEntry.text && !savedEntry.sessionTypes.length && !savedEntry.attire);
     setExpanded(false);
     setError("");
   }, [savedEntry, selectedDate]);
+
+  useEffect(() => {
+    onDirtyChange(editing && (text !== savedEntry.text || attire !== savedEntry.attire || JSON.stringify(sessionTypes) !== JSON.stringify(savedEntry.sessionTypes)));
+  }, [editing, text, attire, sessionTypes, savedEntry, onDirtyChange]);
 
   const savedText = savedEntry.text;
   const isLong = savedText.split("\n").length > PREVIEW_LINES || savedText.length > 400;
@@ -152,7 +157,6 @@ export default function JournalEntry({ selectedDate, savedEntry, onSave }: Journ
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="What did you learn today? Key techniques, rolls, notes..."
-            autoFocus
           />
           <div className={styles.actions}>
             <button className={styles.saveBtn} onClick={handleSave}>

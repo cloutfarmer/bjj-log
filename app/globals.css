@@ -40,3 +40,7 @@ button {
 textarea {
   font-family: inherit;
 }
+
+button { min-height:44px; }
+button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+button:disabled { opacity:.5; cursor:wait; }

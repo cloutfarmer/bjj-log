@@ -136,3 +136,14 @@
 .swatchPlain {
   background: var(--accent);
 }
+
+.weekStrip { gap:6px; margin:12px 0; }
+.weekStrip .dayCell { aspect-ratio:auto; min-width:0; height:76px; line-height:1.5; }
+.legend { flex-wrap:wrap; }
+@media(max-width:480px) {
+  .weekStrip { gap:3px; }
+  .weekStrip .dayCell { height:64px; font-size:.78rem; }
+  .navBtn { font-size:.875rem; padding:8px 10px; }
+  .grid { grid-template-columns:repeat(7,minmax(0,1fr)); }
+  .dayCell { min-width:0; }
+}

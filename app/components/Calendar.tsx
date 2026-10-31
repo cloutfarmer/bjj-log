@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import styles from "./Calendar.module.css";
 
 import type { Attire } from "../types";
@@ -40,6 +41,8 @@ export default function Calendar({
   entriesDates,
   attireByDate,
 }: CalendarProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [offset, setOffset] = useState(0);
   const today = new Date();
   const todayStr =
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -76,7 +79,7 @@ export default function Calendar({
       <button
         key={day}
         className={className}
-        onClick={() => onSelectDate(dateStr)}
+        onClick={() => { onSelectDate(dateStr); setOffset(0); setExpanded(false); }}
         title={tooltip}
       >
         {day}
@@ -84,9 +87,15 @@ export default function Calendar({
     );
   }
 
+  const anchor = new Date(`${selectedDate || todayStr}T12:00:00`);
+  anchor.setDate(anchor.getDate() - anchor.getDay() + offset * 7);
+  const week = Array.from({length:7}, (_,i) => { const d = new Date(anchor); d.setDate(d.getDate()+i); return d; });
   return (
     <div className={styles.calendar}>
-      <div className={styles.header}>
+      <div className={styles.header}><button className={styles.navBtn} aria-label="Previous week" onClick={()=>setOffset(n=>n-1)}>←</button><strong>{anchor.toLocaleDateString("en-US",{month:"short",year:"numeric"})}</strong><button className={styles.navBtn} aria-label="Next week" onClick={()=>setOffset(n=>n+1)}>→</button></div>
+      <div className={`${styles.grid} ${styles.weekStrip}`}>{week.map(d=>{const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;return <button key={key} aria-label={d.toDateString()} aria-pressed={key===selectedDate} className={`${styles.dayCell} ${key===selectedDate?styles.selected:""} ${key===todayStr?styles.today:""} ${entriesDates.has(key)?styles.hasEntry:""} ${attireByDate.get(key)==="gi"?styles.giDot:attireByDate.get(key)==="nogi"?styles.nogiDot:""}`} onClick={()=>{onSelectDate(key);setOffset(0);}}><span>{DAYS_OF_WEEK[d.getDay()]}<br/>{d.getDate()}</span></button>})}</div>
+      <div className={styles.header}><button className={styles.navBtn} onClick={()=>{onSelectDate(todayStr);setOffset(0);}}>Today</button><button className={styles.navBtn} aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?"Collapse month":"Expand month"}</button></div>
+      {expanded && <><div className={styles.header}>
         <button className={styles.navBtn} onClick={onPrevMonth}>
           &larr;
         </button>
@@ -112,7 +121,7 @@ export default function Calendar({
         {cells}
       </div>
 
-      <div className={styles.legend}>
+      </>}<div className={styles.legend}>
         <span><i className={styles.swatchGi} /> Gi</span>
         <span><i className={styles.swatchNogi} /> No-gi</span>
         <span><i className={styles.swatchPlain} /> Not recorded</span>
