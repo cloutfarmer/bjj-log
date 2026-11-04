@@ -5,6 +5,10 @@ import { readFileSync } from "node:fs";
 import nextEnv from "@next/env";
 
 nextEnv.loadEnvConfig(process.cwd());
+// .env.local targets the dev database; copying it would connect the live site to dev data.
+if (process.env.NEON_BRANCH !== "production") {
+  throw new Error("Refusing to configure production: NEON_BRANCH is not production. Pull production values into a separate file and pass it with node --env-file.");
+}
 const project = JSON.parse(readFileSync(".vercel/project.json", "utf8"));
 const keys = ["DATABASE_URL", "BJJ_PASSWORD", "BJJ_SESSION_SECRET"];
 for (const key of keys) {
