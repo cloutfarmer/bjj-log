@@ -1,0 +1,12 @@
+# Browser tests
+
+Procedures are in the [testing guide](../docs/TESTING.md). Run everything on LOCAL, with
+the server using Neon branch `dev`.
+
+| Group | Files | Requirements and effects |
+|---|---|---|
+| Layout | `layout.spec.ts` | Needs a running server, `BJJ_PASSWORD`, and Chrome. Mocks `/api/entries`, so it doesn't read or write journal data. Sets test notes in browser localStorage only |
+| Access control | `storage.spec.ts`, first test | Needs a running server, `BJJ_PASSWORD`, and Chrome. Requests are rejected before any write, so no data changes |
+| **Storage (writes data)** | `storage.spec.ts`, second test | **Creates, edits, imports, and deletes rows in the server's database.** Cleans up after itself. Run only after the [target check](../docs/TESTING.md#browser-tests) |
+
+`npm run test:e2e` runs all three groups.

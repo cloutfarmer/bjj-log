@@ -56,7 +56,8 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
     await page.getByRole("button", { name: "Expand month" }).click();
     await page.getByRole("button", { name: String(Number(date.slice(-2))), exact: true }).click();
     await expect(page.getByText(marker, { exact: true })).toBeVisible();
-    await expect(page.getByText("Gi", { exact: true })).toBeVisible();
+    // The calendar legend also says "Gi", so look only inside the saved entry's attire row.
+    await expect(page.locator('[class*="attireRow"]').getByText("Gi", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Edit Entry", exact: true }).click();
     await page.getByLabel("Training notes").fill(`${marker} edited`);
@@ -98,7 +99,9 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
     // Re-picking the active choice clears it; the day only disappears once attire is gone too.
     await page.getByRole("button", { name: "Gi", exact: true }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.getByText("No entry for this day yet.")).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Saved to your journal");
+    // A day with no entry opens straight into an empty editor.
+    await expect(page.getByLabel("Training notes")).toHaveValue("");
     await page.reload();
     expect((await (await page.request.get("/api/entries")).json())[date]).toBeUndefined();
   } finally {

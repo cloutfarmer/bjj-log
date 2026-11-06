@@ -1,22 +1,21 @@
 # BJJ Log agent guide
 
-This is the canonical entry point for coding agents. Keep it short. Link to facts
-instead of repeating them, and read only the documents the task needs.
+This is the canonical entry point for coding agents. Keep it short. Durable design
+goes in `ARCHITECTURE.md`; volatile state and procedures go under `docs/`. Link to
+facts instead of repeating them, and read only the documents the task needs.
 
 BJJ Log is a private, single-user training journal: Next.js and TypeScript on
 Vercel, with Neon Postgres for storage.
 
 ## Repository
 
-- Canonical checkout: `this repository`.
-- `another project` is a separate project. Never copy its facts,
-  environment names, or invariants into this repo.
+- This repository is public. Never add personal paths, infrastructure IDs, the
+  production URL, or journal content.
 - Branches: start work on `feature/*` or `fix/*` from `dev`, merge to `dev` by PR,
-  and release from `dev` to `prod`. `main` is kept for history. Don't base work on it.
+  and release from `dev` to `prod`.
 - Environments:
-  - **LOCAL:** this Mac, using Neon branch `dev` through `.env.local`.
-  - **PRODUCTION:** Vercel at https://your-deployment.example, using Neon branch
-    `production`.
+  - **LOCAL:** a development machine, using Neon branch `dev` through `.env.local`.
+  - **PRODUCTION:** Vercel, using Neon branch `production`.
   - Both branches are in the same Neon project. `dev` started as a copy of
     `production` and shares no later writes with it.
 - Preserve unrelated and uncommitted work. Do not commit, push, deploy, or change
@@ -28,15 +27,14 @@ Vercel, with Neon Postgres for storage.
 | Task | Required reading |
 |---|---|
 | Find where a feature lives | `README.md` |
-| Branches, reviews, or releases | `docs/WORKFLOW.md` |
-| Deploys or Vercel | `docs/HOSTING.md` |
-| Database, migrations, or Neon | `docs/NEON.md` |
-| TypeScript patterns used here | `docs/TYPESCRIPT.md` |
-| Agent setup progress | `docs/plans/agentic-setup.md` |
+| System design or module boundaries | `ARCHITECTURE.md` |
+| Tests or verification | `docs/TESTING.md` |
+| Branches, setup, or pull requests | `CONTRIBUTING.md` |
+| Database or Neon | `docs/NEON.md` |
 
-`docs/README.md` is the documentation index. When a doc disagrees with the code,
-trust the code, then fix the doc. The safety rules below override older
-instructions in `docs/HOSTING.md` and `docs/NEON.md`.
+`docs/README.md` is the complete index. When a doc disagrees with the code, trust the
+code, then fix the doc. Release, production migration, and production secret runbooks
+are kept outside this repository: ask the user before any production work.
 
 ## Safety rules
 
@@ -61,7 +59,8 @@ instructions in `docs/HOSTING.md` and `docs/NEON.md`.
    `scripts/migrate.mjs` rejects a changed checksum. Add a new file instead.
    Builds must never apply migrations.
 9. Neon branch `dev` contains a copy of the real journal. Never put its contents in
-   Git, test fixtures, logs, or issues.
+   Git, test fixtures, logs, or issues. Failed tests can write page snapshots with
+   journal text to `test-results/`, so never paste or print those files.
 10. Commands must use known paths and values. If a value is unknown, run a discovery
     command first. Never leave a placeholder that could be pasted literally.
 
