@@ -92,3 +92,6 @@ are kept outside this repository: ask the user before any production work.
   external font.
 - Run the smallest safe check first: `npm run typecheck`, `npm run lint`,
   `npm run build`, `git diff --check`.
+- `.claude/skills/ponytail-review/` is vendored unchanged (see its `SOURCE`). Don't
+  edit it. It reviews each PR automatically, as described in
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#automatic-review), and runs on request.

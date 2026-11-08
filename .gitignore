@@ -18,8 +18,12 @@
 /playwright-report/
 /test-results/
 
-# personal tooling and caches
-.claude/
+# personal tooling and caches. Only reviewed, shared skills are tracked; add each one
+# as its own exception.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/ponytail-review/
 .DS_Store
 npm-debug.log*
 *.tsbuildinfo

@@ -106,6 +106,19 @@ Run browser tests when you change the UI, API, or database code. See the
 - Target `dev`. Describe the problem, the resulting behavior, and the checks you
   actually ran.
 
+### Automatic review
+
+`.github/workflows/claude-pr-review.yml` runs the
+[`ponytail-review`](.claude/skills/ponytail-review/SKILL.md) skill once when a PR is
+opened, reopened, or marked ready. It posts one comment with numbered findings and a
+verdict, and never changes code. It doesn't run on later pushes. To run it again, add
+the `claude-review` label, which the job then removes.
+
+It skips drafts, PRs that only change docs or Markdown, and PRs from forks: the
+repository is public and the job holds a token. It needs the `CLAUDE_CODE_OAUTH_TOKEN`
+repository secret. The review is advice: it doesn't block merging, and its comment and
+logs are public.
+
 ## Database changes
 
 Add a new file in `db/migrations/`; never edit one that has been applied. Test it
