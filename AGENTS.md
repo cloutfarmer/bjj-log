@@ -11,8 +11,12 @@ Vercel, with Neon Postgres for storage.
 
 - This repository is public. Never add personal paths, infrastructure IDs, the
   production URL, or journal content.
-- Branches: start work on `feature/*` or `fix/*` from `dev`, merge to `dev` by PR,
-  and release from `dev` to `prod`.
+- Branches: start work on `feature/*`, `fix/*`, or `claude/*` from `dev`, review
+  by PR into `dev`, and release from `dev` to `prod`.
+- Land in `dev` and release to `prod` only by fast-forward, as described in
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#landing-and-releasing). Never use GitHub merge
+  buttons. Only `prod` deploys. Keep both `"*": false` and `"**": false` in
+  `vercel.json`, because `*` alone doesn't match branch names with a slash.
 - Environments:
   - **LOCAL:** a development machine, using Neon branch `dev` through `.env.local`.
   - **PRODUCTION:** Vercel, using Neon branch `production`.
@@ -29,7 +33,7 @@ Vercel, with Neon Postgres for storage.
 | Find where a feature lives | `README.md` |
 | System design or module boundaries | `ARCHITECTURE.md` |
 | Tests or verification | `docs/TESTING.md` |
-| Branches, setup, or pull requests | `CONTRIBUTING.md` |
+| Branches, setup, pull requests, or landing and releasing | `CONTRIBUTING.md` |
 | Database or Neon | `docs/NEON.md` |
 
 `docs/README.md` is the complete index. When a doc disagrees with the code, trust the

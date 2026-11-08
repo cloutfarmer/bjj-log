@@ -44,8 +44,45 @@ git pull --ff-only
 git switch -c feature/your-change
 ```
 
-Use `feature/*` or `fix/*`. For an urgent production fix, branch from `prod`, release
-the fix, then merge it back into `dev`.
+Use `feature/*` or `fix/*`. Agent sessions on the web or a phone push `claude/*`
+branches. Those follow the same rules. For an urgent production fix, branch from `prod`
+and release the fix. Then merge `prod` into `dev` locally and push `dev`, so `prod`
+stays an ancestor of `dev`.
+
+## Landing and releasing
+
+Preview deployments are off. In `vercel.json`, `"*": false` skips branches without a
+slash, such as `dev`, and `"**": false` skips the rest, such as `feature/*` and
+`claude/*`. Only `prod` deploys. Vercel reads `vercel.json` from the pushed commit, so a
+branch made before this rule existed can still start a build. `scripts/check-deployment.mjs`
+then fails it, and the PR shows a failed "Vercel" status that deploys nothing. To see a
+PR, find its branch with `gh pr list`, check that branch out in a separate worktree,
+and run `npm run dev` there.
+
+Push only from a clone of this repository. Commit with your GitHub noreply address,
+and don't use GitHub's merge, squash, or rebase buttons: each one writes a new commit
+under the merging account's commit email. Instead, land work by fast-forward:
+
+```bash
+git fetch origin
+git switch feature/your-change
+git rebase origin/dev
+git merge-base --is-ancestor origin/dev HEAD && git push origin HEAD:dev
+```
+
+The `merge-base` check stops the push if the branch doesn't contain `dev`. When the
+PR's commits reach `dev`, GitHub marks the PR as merged.
+
+Releasing fast-forwards `prod` to `dev`. **This deploys to production**, so do it only
+after review and with approval:
+
+```bash
+git fetch origin
+git log --oneline origin/prod..origin/dev
+git push origin origin/dev:prod
+```
+
+Git rejects that push unless it is a fast-forward.
 
 ## Verification
 

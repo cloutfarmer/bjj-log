@@ -6,7 +6,7 @@ need them. Coding-agent constraints live in [`../AGENTS.md`](../AGENTS.md).
 | Document | Purpose |
 |---|---|
 | [`../README.md`](../README.md) | Project overview and code map |
-| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Setup, branches, verification, and pull requests |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Setup, branches, verification, pull requests, and landing and releasing |
 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | Durable design and invariants |
 | [`TESTING.md`](TESTING.md) | Safe checks and browser test procedures |
 | [`../tests/README.md`](../tests/README.md) | Test groups and what each one touches |
