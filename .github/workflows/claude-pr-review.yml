@@ -5,7 +5,8 @@ name: claude-pr-review
 # files the rest as issues, and posts one summary comment. It does not re-run on
 # every push: add the `claude-review` label to run it again. Drafts, docs-only PRs
 # and PRs from forks are skipped, because this repository is public and the job
-# holds a token with write access.
+# holds a token with write access. PRs whose source branch is `dev` or `prod` are
+# skipped too, because the bot pushes fixes to the source branch.
 
 on:
   pull_request:
@@ -23,6 +24,8 @@ jobs:
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'dev' &&
+      github.event.pull_request.head.ref != 'prod' &&
       (github.event.action != 'labeled' || github.event.label.name == 'claude-review')
     runs-on: ubuntu-24.04
     timeout-minutes: 30

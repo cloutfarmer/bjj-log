@@ -118,8 +118,8 @@ reopened, or marked ready. pr-triage runs
 - **Tier 3, unreachable or not a bug:** filed as an issue.
 
 Fixes land as one commit, `review: fix tier 1/2 findings from pr-triage`, on the PR
-branch, after `npm run typecheck` and `npm run lint` pass. The bot never pushes to
-`dev` or `prod`, and never touches migrations, `vercel.json`, `neon.ts`, `scripts/`,
+branch, after `npm run typecheck` and `npm run lint` pass. It skips PRs whose source
+branch is `dev` or `prod`, so it never pushes to either, and never touches migrations, `vercel.json`, `neon.ts`, `scripts/`,
 `.github/`, `.claude/`, or env files. A critical finding there is reported as "needs
 human". It posts one comment with a table of findings and a verdict. Review its fix
 commit like any other before landing the PR.
