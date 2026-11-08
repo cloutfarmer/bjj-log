@@ -1,9 +1,11 @@
 name: claude-pr-review
 
-# Runs the ponytail-review skill once per pull request and posts one comment with
-# its findings. It never changes code. It does not re-run on every push: add the
-# `claude-review` label to run it again. Drafts, docs-only PRs and PRs from forks
-# are skipped, because this repository is public and the job holds a token.
+# Runs the pr-triage skill (ponytail-review plus tier sorting) once per pull
+# request. It fixes critical and trivial findings in one commit on the PR branch,
+# files the rest as issues, and posts one summary comment. It does not re-run on
+# every push: add the `claude-review` label to run it again. Drafts, docs-only PRs
+# and PRs from forks are skipped, because this repository is public and the job
+# holds a token with write access.
 
 on:
   pull_request:
@@ -17,23 +19,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ponytail-review:
+  pr-triage:
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.event.action != 'labeled' || github.event.label.name == 'claude-review')
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
+      issues: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Needed for typecheck and lint on the fix commit. No database or secrets.
+      - run: npm ci
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -42,19 +52,15 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
             BASE BRANCH: ${{ github.event.pull_request.base.ref }}
+            PR BRANCH: ${{ github.event.pull_request.head.ref }}
 
-            Run the ponytail-review skill on this pull request: review the diff
-            between origin/${{ github.event.pull_request.base.ref }} and HEAD.
-            Read AGENTS.md first and treat a broken invariant there as a bug.
-            Do not change any file.
-
-            Post the full review as exactly one comment with `gh pr comment`.
-            This repository is public, so never put secrets, environment values,
-            URLs of deployments or journal text in the comment.
+            Run the pr-triage skill on this pull request.
+            To push a fix commit, use exactly:
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
           claude_args: |
             --model opus
-            --max-turns 40
-            --allowedTools "Skill,Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+            --max-turns 60
+            --allowedTools "Skill,Read,Glob,Grep,Edit,Write,Bash(npm run typecheck),Bash(npm run lint),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push origin HEAD:${{ github.event.pull_request.head.ref }}),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(gh issue comment:*),Bash(gh label create:*)"
 
       - name: Clear the re-run label
         if: always() && github.event.action == 'labeled'

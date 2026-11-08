@@ -93,5 +93,6 @@ are kept outside this repository: ask the user before any production work.
 - Run the smallest safe check first: `npm run typecheck`, `npm run lint`,
   `npm run build`, `git diff --check`.
 - `.claude/skills/ponytail-review/` is vendored unchanged (see its `SOURCE`). Don't
-  edit it. It reviews each PR automatically, as described in
-  [`CONTRIBUTING.md`](CONTRIBUTING.md#automatic-review), and runs on request.
+  edit it. `.claude/skills/pr-triage/` wraps it: it runs on each PR, fixes tier 1 and
+  trivial tier 2 findings on the PR branch, and files the rest, as described in
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#automatic-review). Both also run on request.

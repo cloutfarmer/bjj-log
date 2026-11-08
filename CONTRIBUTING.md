@@ -109,15 +109,26 @@ Run browser tests when you change the UI, API, or database code. See the
 ### Automatic review
 
 `.github/workflows/claude-pr-review.yml` runs the
-[`ponytail-review`](.claude/skills/ponytail-review/SKILL.md) skill once when a PR is
-opened, reopened, or marked ready. It posts one comment with numbered findings and a
-verdict, and never changes code. It doesn't run on later pushes. To run it again, add
-the `claude-review` label, which the job then removes.
+[`pr-triage`](.claude/skills/pr-triage/SKILL.md) skill once when a PR is opened,
+reopened, or marked ready. pr-triage runs
+[`ponytail-review`](.claude/skills/ponytail-review/SKILL.md), then sorts each finding:
 
-It skips drafts, PRs that only change docs or Markdown, and PRs from forks: the
-repository is public and the job holds a token. It needs the `CLAUDE_CODE_OAUTH_TOKEN`
-repository secret. The review is advice: it doesn't block merging, and its comment and
-logs are public.
+- **Tier 1, critical:** always fixed.
+- **Tier 2, minor:** fixed if trivial or a likely edge case, otherwise filed as an issue.
+- **Tier 3, unreachable or not a bug:** filed as an issue.
+
+Fixes land as one commit, `review: fix tier 1/2 findings from pr-triage`, on the PR
+branch, after `npm run typecheck` and `npm run lint` pass. The bot never pushes to
+`dev` or `prod`, and never touches migrations, `vercel.json`, `neon.ts`, `scripts/`,
+`.github/`, `.claude/`, or env files. A critical finding there is reported as "needs
+human". It posts one comment with a table of findings and a verdict. Review its fix
+commit like any other before landing the PR.
+
+It doesn't run on later pushes. To run it again, add the `claude-review` label, which
+the job then removes. It skips drafts, PRs that only change docs or Markdown, and PRs
+from forks: the repository is public and the job holds a token with write access. It
+needs the `CLAUDE_CODE_OAUTH_TOKEN` repository secret. Its comments, issues, and logs
+are public.
 
 ## Database changes
 
