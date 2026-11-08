@@ -132,7 +132,7 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      <header className={styles.appHeader}><div className={styles.brand}><LogoMark className={styles.logo} /><div><h1 className={styles.title}>BJJ Log</h1><p className={styles.tagline}>Training journal</p></div></div>
+      <header className={styles.appHeader}><div className={styles.brand}><LogoMark className={styles.logo} /><h1 className={styles.title}>BJJ Log</h1></div>
       <form action="/api/logout" method="post" onSubmit={event => { if (dirty && !window.confirm("Discard unsaved changes and sign out?")) event.preventDefault(); }}><button className={styles.signOut} type="submit">Sign out</button></form></header>
       {error && <p role="alert" className={styles.alert}>{error}</p>}
       {!mounted && <p className={styles.loading}>Loading your notes… <button onClick={() => { setError(""); refresh().catch((cause: Error) => setError(cause.message)); }}>Retry</button></p>}

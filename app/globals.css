@@ -6,32 +6,42 @@
   padding: 0;
 }
 
+/*
+ * Blue belt night: a navy-ink ramp, belt blue as the one accent, and the training
+ * record (gi in cotton white, no-gi in rash-guard coral) as the only other colour.
+ */
 :root {
   color-scheme: dark;
-  --bg: #07080d;
-  --bg-card: #10121a;
-  --bg-raised: #151824;
-  --bg-hover: #1b1f2d;
-  --border: #232736;
-  --border-strong: #31364a;
-  --text: #eceef4;
-  --text-muted: #8b90a3;
-  --accent: #818cf8;
-  --accent-strong: #6366f1;
-  --accent-dim: #1f2147;
-  --accent-2: #22d3ee;
-  --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #22d3ee 100%);
-  --today: #34d399;
-  --today-dim: #0f3a2c;
-  /* Gi and no-gi get hues of their own so a single dot reads at a glance. */
-  --gi: #c084fc;
-  --gi-dim: #36184f;
-  --nogi: #fbbf24;
-  --nogi-dim: #45300a;
-  --radius: 16px;
+  --bg: #0d1017;
+  --bg-card: #141925;
+  --bg-raised: #1b2130;
+  --bg-hover: #212838;
+  --border: rgba(238, 240, 245, 0.08);
+  --border-strong: rgba(238, 240, 245, 0.16);
+  --text: #eef0f5;
+  --text-secondary: #a3a9b8;
+  --text-muted: #828aa0;
+  /* Belt blue. The deeper shade carries white text at 4.8:1; the lighter one is for
+     highlights such as the selected day and the streak figure. */
+  --primary: #3a6fd4;
+  --primary-hover: #3163c4;
+  --on-primary: #ffffff;
+  --accent: #5b8de8;
+  --accent-dim: rgba(91, 141, 232, 0.16);
+  --today: #c4cad6;
+  --today-dim: var(--bg-raised);
+  --gi: #e8e4da;
+  --gi-dim: rgba(232, 228, 218, 0.12);
+  --nogi: #e07a5f;
+  --nogi-dim: rgba(224, 122, 95, 0.16);
+  --belt-blue: #3a6fd4;
+  --belt-bar: #08090c;
+  --positive: #4cc38a;
+  --negative: #e5484d;
+  --radius: 14px;
   --radius-sm: 10px;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.8);
-  --glow: 0 8px 24px -8px rgba(99, 102, 241, 0.55);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 html,
@@ -44,23 +54,17 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  background:
-    radial-gradient(60rem 30rem at 10% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
-    radial-gradient(40rem 24rem at 100% 0%, rgba(34, 211, 238, 0.1), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
-}
-
 button {
   cursor: pointer;
   font-family: inherit;
   min-height: 44px;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease), transform 120ms var(--ease);
 }
 
-button:active:not(:disabled) { transform: scale(0.97); }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { opacity: 0.5; cursor: wait; }
 
 textarea,

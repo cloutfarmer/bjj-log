@@ -4,10 +4,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "BJJ Log",
-  description: "Track your Brazilian Jiu-Jitsu journey",
+  description: "A private journal for Brazilian jiu-jitsu training",
 };
 
-export const viewport: Viewport = { themeColor: "#07080d" };
+export const viewport: Viewport = { themeColor: "#0d1017" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

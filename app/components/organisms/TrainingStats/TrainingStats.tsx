@@ -21,18 +21,18 @@ export default function TrainingStats({ entriesDates, attireByDate }: TrainingSt
       <div className={styles.grid}>
         <StatCard label="This week" value={stats.thisWeek} />
         <StatCard label="This month" value={stats.thisMonth} />
-        <StatCard label="Week streak" value={stats.weekStreak} />
+        <StatCard label="Week streak" value={stats.weekStreak} lead stripes={stats.weekStreak} />
         <StatCard label="All time" value={stats.total} />
       </div>
       {recorded > 0 && (
         <div className={styles.split}>
           <div className={styles.splitHeader}>
-            <span><b className={styles.giText}>Gi</b> {stats.gi} · {giShare}%</span>
-            <span>{100 - giShare}% · {stats.nogi} <b className={styles.nogiText}>No-Gi</b></span>
+            <span><i className={styles.dotGi} />Gi <span className={styles.figure}>{stats.gi} · {giShare}%</span></span>
+            <span><span className={styles.figure}>{100 - giShare}% · {stats.nogi}</span> No-Gi<i className={styles.dotNogi} /></span>
           </div>
           <div className={styles.bar} aria-hidden="true">
-            <div className={styles.barGi} style={{ width: `${giShare}%` }} />
-            <div className={styles.barNogi} style={{ width: `${100 - giShare}%` }} />
+            {giShare > 0 && <div className={styles.barGi} style={{ flexGrow: giShare }} />}
+            {giShare < 100 && <div className={styles.barNogi} style={{ flexGrow: 100 - giShare }} />}
           </div>
         </div>
       )}
