@@ -12,8 +12,10 @@ npm run lint
 npm run build
 git diff --check
 npm audit
+npx playwright test tests/stats.spec.ts
 ```
 
+The stats spec tests a pure function and opens no browser or server.
 `npm run build` reads `.env.local` but doesn't apply migrations or change data.
 
 ## Browser tests
