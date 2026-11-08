@@ -1,0 +1,59 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.card + .card { border-left: 1px solid var(--border); }
+.card:first-child { padding-left: 0; }
+
+.value {
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.lead { color: var(--accent); }
+
+.label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+/* The signature: a blue belt tip whose black rank bar gets a white tape stripe per
+   streak week, matching the logo. */
+.beltTip {
+  display: flex;
+  gap: 2px;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 4px;
+  background: var(--belt-bar);
+  border-left: 12px solid var(--belt-blue);
+  border-radius: 2px;
+}
+
+.stripe,
+.stripeOn {
+  width: 3px;
+  height: 8px;
+  background: rgba(237, 234, 228, 0.12);
+}
+
+.stripeOn { background: var(--text); }
+
+@media (max-width: 480px) {
+  .card { padding: 0 12px; }
+  .value { font-size: 1.5rem; }
+  .label { font-size: 0.75rem; }
+}
+
+@media (max-width: 360px) {
+  .card + .card { border-left: 0; }
+  .card { padding: 0; }
+}

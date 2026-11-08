@@ -123,7 +123,7 @@ export default function Calendar({
 
       </>}<div className={styles.legend}>
         <span><i className={styles.swatchGi} /> Gi</span>
-        <span><i className={styles.swatchNogi} /> No-gi</span>
+        <span><i className={styles.swatchNogi} /> No-Gi</span>
         <span><i className={styles.swatchPlain} /> Not recorded</span>
       </div>
     </div>

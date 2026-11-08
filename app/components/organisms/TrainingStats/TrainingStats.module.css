@@ -1,0 +1,69 @@
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+}
+
+.split {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.splitHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.splitHeader > span { display: inline-flex; align-items: center; gap: 8px; }
+.figure { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.dotGi,
+.dotNogi {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dotGi { background: var(--gi); }
+.dotNogi { background: var(--nogi); }
+
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.barGi,
+.barNogi {
+  flex-basis: 0;
+  min-width: 4px;
+  border-radius: 2px;
+}
+
+.barGi { background: var(--gi); }
+.barNogi { background: var(--nogi); }
+
+@media (max-width: 768px) {
+  .stats { padding: 16px; gap: 16px; }
+}
+
+@media (max-width: 360px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px; }
+}

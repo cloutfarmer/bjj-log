@@ -61,6 +61,8 @@ One row per training day, in `bjj_entries`:
 | `app/components/Journal.tsx` | Client state: entries, selected date, saving, and import |
 | `app/components/Calendar.tsx` | Week view that expands to a full month, plus the attire legend |
 | `app/components/JournalEntry.tsx` | Read and edit views for the selected day |
+| `app/components/{atoms,molecules,organisms}/` | New presentational components, one folder each, grouped by atomic-design level (for example `organisms/TrainingStats`) |
+| `lib/stats.ts` | Pure training-stat calculations: week, month, week streak, total, gi/no-gi split |
 | `app/types.ts` | Shared entry types and attire options |
 | `app/api/` | HTTP routes: entries, import, login, logout |
 | `lib/entries.ts` | Runtime validation of untrusted entry data |

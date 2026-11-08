@@ -6,41 +6,80 @@
   padding: 0;
 }
 
+/*
+ * Blue belt night: a navy-ink ramp, belt blue as the one accent, and the training
+ * record (gi in cotton white, no-gi in rash-guard coral) as the only other colour.
+ */
 :root {
-  --bg: #0a0a0a;
-  --bg-card: #141414;
-  --bg-hover: #1a1a1a;
-  --border: #2a2a2a;
-  --text: #e5e5e5;
-  --text-muted: #737373;
-  --accent: #3b82f6;
-  --accent-dim: #1e3a5f;
-  --today: #22c55e;
-  --today-dim: #14532d;
-  /* Gi and no-gi get hues of their own so a single dot reads at a glance. */
-  --gi: #a855f7;
-  --gi-dim: #3b1d5e;
-  --nogi: #f59e0b;
-  --nogi-dim: #4a3108;
+  color-scheme: dark;
+  --bg: #0d1017;
+  --bg-card: #141925;
+  --bg-raised: #1b2130;
+  --bg-hover: #212838;
+  --border: rgba(238, 240, 245, 0.08);
+  --border-strong: rgba(238, 240, 245, 0.16);
+  --text: #eef0f5;
+  --text-secondary: #a3a9b8;
+  --text-muted: #828aa0;
+  /* Belt blue. The deeper shade carries white text at 4.8:1; the lighter one is for
+     highlights such as the selected day and the streak figure. */
+  --primary: #3a6fd4;
+  --primary-hover: #3163c4;
+  --on-primary: #ffffff;
+  --accent: #5b8de8;
+  --accent-dim: rgba(91, 141, 232, 0.16);
+  --today: #c4cad6;
+  --today-dim: var(--bg-raised);
+  --gi: #e8e4da;
+  --gi-dim: rgba(232, 228, 218, 0.12);
+  --nogi: #e07a5f;
+  --nogi-dim: rgba(224, 122, 95, 0.16);
+  --belt-blue: #3a6fd4;
+  --belt-bar: #08090c;
+  --positive: #4cc38a;
+  --negative: #e5484d;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button {
   cursor: pointer;
   font-family: inherit;
+  min-height: 44px;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease), transform 120ms var(--ease);
 }
 
-textarea {
+button:active:not(:disabled) { transform: scale(0.98); }
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+textarea,
+input {
   font-family: inherit;
 }
 
-button { min-height:44px; }
-button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-button:disabled { opacity:.5; cursor:wait; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
