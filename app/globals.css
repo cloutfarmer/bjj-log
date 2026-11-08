@@ -7,40 +7,75 @@
 }
 
 :root {
-  --bg: #0a0a0a;
-  --bg-card: #141414;
-  --bg-hover: #1a1a1a;
-  --border: #2a2a2a;
-  --text: #e5e5e5;
-  --text-muted: #737373;
-  --accent: #3b82f6;
-  --accent-dim: #1e3a5f;
-  --today: #22c55e;
-  --today-dim: #14532d;
+  color-scheme: dark;
+  --bg: #07080d;
+  --bg-card: #10121a;
+  --bg-raised: #151824;
+  --bg-hover: #1b1f2d;
+  --border: #232736;
+  --border-strong: #31364a;
+  --text: #eceef4;
+  --text-muted: #8b90a3;
+  --accent: #818cf8;
+  --accent-strong: #6366f1;
+  --accent-dim: #1f2147;
+  --accent-2: #22d3ee;
+  --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #22d3ee 100%);
+  --today: #34d399;
+  --today-dim: #0f3a2c;
   /* Gi and no-gi get hues of their own so a single dot reads at a glance. */
-  --gi: #a855f7;
-  --gi-dim: #3b1d5e;
-  --nogi: #f59e0b;
-  --nogi-dim: #4a3108;
+  --gi: #c084fc;
+  --gi-dim: #36184f;
+  --nogi: #fbbf24;
+  --nogi-dim: #45300a;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.8);
+  --glow: 0 8px 24px -8px rgba(99, 102, 241, 0.55);
 }
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background:
+    radial-gradient(60rem 30rem at 10% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+    radial-gradient(40rem 24rem at 100% 0%, rgba(34, 211, 238, 0.1), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 button {
   cursor: pointer;
   font-family: inherit;
+  min-height: 44px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 
-textarea {
+button:active:not(:disabled) { transform: scale(0.97); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+textarea,
+input {
   font-family: inherit;
 }
 
-button { min-height:44px; }
-button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-button:disabled { opacity:.5; cursor:wait; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

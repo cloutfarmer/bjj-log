@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { isDate, parseEntry } from "../../lib/entries";
 import Calendar from "./Calendar";
 import JournalEntry from "./JournalEntry";
+import LogoMark from "./atoms/LogoMark/LogoMark";
+import TrainingStats from "./organisms/TrainingStats/TrainingStats";
 import styles from "../page.module.css";
 
 import type { Attire, JournalEntryData } from "../types";
@@ -130,17 +132,18 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      <header className={styles.appHeader}><h1 className={styles.title}>BJJ Log</h1>
+      <header className={styles.appHeader}><div className={styles.brand}><LogoMark className={styles.logo} /><div><h1 className={styles.title}>BJJ Log</h1><p className={styles.tagline}>Training journal</p></div></div>
       <form action="/api/logout" method="post" onSubmit={event => { if (dirty && !window.confirm("Discard unsaved changes and sign out?")) event.preventDefault(); }}><button className={styles.signOut} type="submit">Sign out</button></form></header>
-      {error && <p role="alert">{error}</p>}
-      {!mounted && <p>Loading your notes… <button onClick={() => { setError(""); refresh().catch((cause: Error) => setError(cause.message)); }}>Retry</button></p>}
-      {notice && <p role="status">{notice}</p>}
+      {error && <p role="alert" className={styles.alert}>{error}</p>}
+      {!mounted && <p className={styles.loading}>Loading your notes… <button onClick={() => { setError(""); refresh().catch((cause: Error) => setError(cause.message)); }}>Retry</button></p>}
+      {notice && <p role="status" className={styles.status}>{notice}</p>}
       {pendingCount > 0 && <div className={styles.importNotice}>
         <p>{pendingCount} browser {pendingCount === 1 ? "note is" : "notes are"} missing from your journal. Import keeps existing journal notes.</p>
         <button className={styles.secondaryButton} disabled={busy || dirty || !mounted} onClick={importNotes}>{busy ? "Importing…" : "Import browser notes"}</button>
       </div>}
       {mounted && <div className={styles.layout}>
-        <fieldset disabled={busy} className={styles.calendarControls}>
+        <TrainingStats entriesDates={entriesDates} attireByDate={attireByDate} />
+        <fieldset disabled={busy} className={`${styles.calendarControls} ${styles.card}`}>
         <Calendar
           year={year}
           month={month}
@@ -152,12 +155,12 @@ export default function Home() {
           attireByDate={attireByDate}
         />
         </fieldset>
-        <div className={styles.content}><JournalEntry
+        <div className={styles.content}><div className={styles.card}><JournalEntry
           selectedDate={selectedDate}
           savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
           onSave={handleSave}
           onDirtyChange={setDirty}
-        /><aside className={styles.recent}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
+        /></div><aside className={`${styles.recent} ${styles.card}`}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
       </div>}
     </main>
   );
