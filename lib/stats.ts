@@ -30,8 +30,9 @@ export function computeTrainingStats(
   attireByDate: ReadonlyMap<string, Attire>,
   today: Date,
 ): TrainingStatsData {
-  const all = new Set(dates);
   const todayKey = dateKey(today);
+  // Future-dated entries are plans, not sessions: leave them out of every figure.
+  const all = new Set([...dates].filter(key => key <= todayKey));
   const monthPrefix = todayKey.slice(0, 7);
   const currentWeek = weekStart(today);
 
@@ -39,7 +40,6 @@ export function computeTrainingStats(
   let thisWeek = 0;
   let thisMonth = 0;
   for (const key of all) {
-    if (key > todayKey) continue;
     const week = dateKey(weekStart(new Date(`${key}T12:00:00`)));
     weeks.add(week);
     if (week === dateKey(currentWeek)) thisWeek++;
@@ -56,7 +56,8 @@ export function computeTrainingStats(
 
   let gi = 0;
   let nogi = 0;
-  for (const attire of attireByDate.values()) {
+  for (const [key, attire] of attireByDate) {
+    if (key > todayKey) continue;
     if (attire === "gi") gi++;
     else nogi++;
   }
