@@ -72,6 +72,7 @@ Browser tests use Playwright, and one of them writes to the database, so read th
 | `db/migrations/` | Ordered SQL migrations |
 | `scripts/` | Migration and deployment tools |
 | `tests/` | Playwright browser tests |
+| `dev/` | Development-only preview at `/dev`: the real UI with made-up data |
 | `docs/` | [Documentation index](docs/README.md) |
 
 ## Credits

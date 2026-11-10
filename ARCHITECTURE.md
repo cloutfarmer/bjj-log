@@ -71,6 +71,7 @@ One row per training day, in `bjj_entries`:
 | `db/migrations/` | Ordered SQL files |
 | `scripts/` | Migrations, deployment, and production-secret tools |
 | `tests/` | Playwright browser tests |
+| `dev/`, `app/dev/page.dev.tsx` | Development-only preview at `/dev`: the real calendar, stats, and entry with made-up fixtures |
 
 State lives in `Journal` and passes down as props. Interactive components are client
 components. Styling uses CSS Modules with dark-theme variables from `app/globals.css`
@@ -86,6 +87,9 @@ and stay blue when none is recorded.
 - `DATABASE_URL` (pooled) serves the app. `DATABASE_URL_UNPOOLED` (direct) is used only
   by `scripts/migrate.mjs`.
 - Local development and production use separate Neon branches.
+- The `/dev` preview exists only under `next dev`. `next.config.mjs` adds the
+  `page.dev.tsx` extension only in development, so production builds never compile the
+  page or its fixtures. It reads no session, database, or network.
 
 ## Invariants
 

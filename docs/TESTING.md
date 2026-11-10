@@ -18,6 +18,14 @@ npx playwright test tests/stats.spec.ts
 The stats spec tests a pure function and opens no browser or server.
 `npm run build` reads `.env.local` but doesn't apply migrations or change data.
 
+## Preview page: always safe
+
+**LOCAL.** Run `npm run dev` and open http://localhost:3000/dev. It renders the real
+calendar, training stats, and entry with made-up data from `dev/fixtures.ts`, and needs no
+database, password, or network. Saves stay in memory. It's not part of production builds;
+after `npm run build`, `/dev` must not appear in the route list. Use it for layout checks
+and screenshots.
+
 ## Browser tests
 
 **LOCAL only.** Never run these against the live site. `npm run test:e2e` runs every spec,
