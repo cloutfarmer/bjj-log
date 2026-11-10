@@ -31,7 +31,8 @@ npm run dev
 ```
 
 Open http://localhost:3000. The development server builds into `.next-dev`, so it can
-run alongside a production build in `.next`.
+run alongside a production build in `.next`. To see the UI without a database, open
+`/dev` instead (see the [testing guide](docs/TESTING.md#preview-page-always-safe)).
 
 ## Branches
 
