@@ -39,9 +39,15 @@ export default function JournalPreview() {
 
   if (!fixtures) return null;
 
-  // Saves stay in memory, so the editor can be tried without a server.
+  // Saves stay in memory, so the editor can be tried without a server. An empty entry is
+  // deleted, as in app/components/Journal.tsx.
   async function handleSave(date: string, entry: JournalEntryData) {
-    setEntries((previous) => ({ ...previous, [date]: entry }));
+    setEntries((previous) => {
+      const updated = { ...previous };
+      if (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire) delete updated[date];
+      else updated[date] = entry;
+      return updated;
+    });
   }
   function shiftMonth(delta: number) {
     const next = new Date(year, month + delta, 1);
