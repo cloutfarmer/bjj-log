@@ -21,6 +21,49 @@
   overflow-wrap: anywhere;
 }
 
+.link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible,
+.remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Padding plus negative margin gives a 44x36 tap target without growing the chip. */
+.remove {
+  align-self: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 36px;
+  margin: -12px -12px -12px -4px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.remove:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .bucket {
   flex-shrink: 0;
   font-size: 0.6875rem;

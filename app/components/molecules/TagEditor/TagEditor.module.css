@@ -6,6 +6,43 @@
   min-width: 0;
 }
 
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.suggestion {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 4px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--accent);
+  background: none;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.suggestion:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.button:disabled,
+.save:disabled,
+.suggestion:disabled,
+.input:disabled {
+  opacity: 0.5;
+}
+
 .none {
   font-size: 0.8125rem;
   color: var(--text-muted);
