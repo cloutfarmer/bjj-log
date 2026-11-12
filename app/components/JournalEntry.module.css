@@ -200,3 +200,10 @@
 .container { max-width:none; scroll-margin-top:16px; }
 .textarea { font-size:16px; }
 @media(max-width:480px) { .pill { padding:8px 12px; } .textarea { min-height:220px; } .actions button { flex:1; } }
+
+.tagSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}

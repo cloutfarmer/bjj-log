@@ -31,6 +31,14 @@ const sessions: Array<{ day: number; entry: JournalEntryData }> = [
 
 const FEATURED_DAY = 4;
 
+/** Made-up tag names and their buckets (see lib/ai/buckets.ts for the fixed list). */
+const previewTags: Record<string, string> = {
+  "closed guard": "guard",
+  "knee cut": "passing",
+  "leg entries": "leg locks",
+  "mount chokes": "submissions",
+};
+
 /** Builds the fixtures for the preview, with dates relative to `today`. */
 export function buildPreviewFixtures(today: Date) {
   const lastSunday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
@@ -45,5 +53,12 @@ export function buildPreviewFixtures(today: Date) {
   const entries: Record<string, JournalEntryData> = Object.fromEntries(
     sessions.map(({ day, entry }) => [keyFor(day), entry] as const).filter(([key]) => key <= todayKey),
   );
-  return { entries, featuredDate: keyFor(FEATURED_DAY) };
+  // Tags for a few dates, so the preview shows tagged, user-set and untagged notes.
+  const entryTags: Record<string, { tag: string | null; source: "code" | "ai" | "user" }> = {
+    [keyFor(-20)]: { tag: "closed guard", source: "ai" },
+    [keyFor(-17)]: { tag: "leg entries", source: "ai" },
+    [keyFor(-13)]: { tag: "mount chokes", source: "user" },
+    [keyFor(FEATURED_DAY)]: { tag: "knee cut", source: "ai" },
+  };
+  return { entries, entryTags, tags: previewTags, featuredDate: keyFor(FEATURED_DAY) };
 }

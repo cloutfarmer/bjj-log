@@ -4,6 +4,7 @@
  * database, auth, or network. Mounted at /dev by app/dev/page.dev.tsx, which
  * next.config.mjs leaves out of production builds. */
 import { useEffect, useState } from "react";
+import { BUCKETS } from "../lib/ai/buckets";
 import Calendar from "../app/components/Calendar";
 import JournalEntry from "../app/components/JournalEntry";
 import LogoMark from "../app/components/atoms/LogoMark/LogoMark";
@@ -23,6 +24,8 @@ export default function JournalPreview() {
   // Built after mount so the server and browser agree on "today".
   const [fixtures, setFixtures] = useState<Fixtures | null>(null);
   const [entries, setEntries] = useState<Record<string, JournalEntryData>>({});
+  const [entryTags, setEntryTags] = useState<Fixtures["entryTags"]>({});
+  const [tags, setTags] = useState<Record<string, string>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [year, setYear] = useState(0);
   const [month, setMonth] = useState(0);
@@ -32,6 +35,8 @@ export default function JournalPreview() {
     const [y, m] = built.featuredDate.split("-").map(Number);
     setFixtures(built);
     setEntries(built.entries);
+    setEntryTags(built.entryTags);
+    setTags(built.tags);
     setSelectedDate(built.featuredDate);
     setYear(y);
     setMonth(m - 1);
@@ -49,6 +54,11 @@ export default function JournalPreview() {
       return updated;
     });
   }
+  // Tag edits stay in memory too; a new tag joins the suggestions, as in the real journal.
+  function setTag(date: string, tag: string | null, bucket: string | null) {
+    if (tag && bucket) setTags((previous) => ({ ...previous, [tag]: previous[tag] ?? bucket }));
+    setEntryTags((previous) => ({ ...previous, [date]: { tag, source: "user" } }));
+  }
   function shiftMonth(delta: number) {
     const next = new Date(year, month + delta, 1);
     setYear(next.getFullYear());
@@ -59,6 +69,9 @@ export default function JournalPreview() {
   const attireByDate = new Map(
     Object.entries(entries).flatMap(([date, entry]) => (entry.attire ? [[date, entry.attire] as const] : [])),
   );
+
+  const selectedEntry = selectedDate ? entries[selectedDate] : undefined;
+  const selectedTag = selectedDate ? entryTags[selectedDate]?.tag ?? null : null;
 
   return (
     <main className={pageStyles.main}>
@@ -92,6 +105,16 @@ export default function JournalPreview() {
                 savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
                 onSave={handleSave}
                 onDirtyChange={noop}
+                tagging={selectedEntry?.text.trim() && selectedDate ? {
+                  tag: selectedTag,
+                  bucket: selectedTag ? tags[selectedTag] ?? null : null,
+                  source: entryTags[selectedDate]?.source,
+                  tags,
+                  buckets: BUCKETS,
+                  busy: false,
+                  onChange: (tag, bucket) => setTag(selectedDate, tag, bucket),
+                  onRemove: () => setTag(selectedDate, null, null),
+                } : undefined}
               />
             </div>
           </div>
