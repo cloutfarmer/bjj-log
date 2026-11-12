@@ -12,7 +12,9 @@ interface NoteCardProps {
   date: string;
   entry: JournalEntryData;
   /** Already includes the hrefFor override. */
-  editor: TagEditorProps;
+  editor?: TagEditorProps;
+  /** Small muted line above the tag editor. */
+  note?: string;
   journalHref: string;
 }
 
@@ -38,7 +40,7 @@ function formatDateHeading(dateStr: string) {
   return `${dayName}, ${MONTH_NAMES[m - 1]} ${d}, ${y}`;
 }
 
-export default function NoteCard({ date, entry, editor, journalHref }: NoteCardProps) {
+export default function NoteCard({ date, entry, editor, note, journalHref }: NoteCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isLong = entry.text.split("\n").length > PREVIEW_LINES || entry.text.length > 400;
   const attire = entry.attire === "gi" ? "Gi" : entry.attire === "nogi" ? "No-gi" : null;
@@ -48,7 +50,8 @@ export default function NoteCard({ date, entry, editor, journalHref }: NoteCardP
     <article className={styles.noteCard}>
       <h3 className={styles.noteDate}>{formatDateHeading(date)}</h3>
       {meta && <p className={styles.noteMeta}>{meta}</p>}
-      <TagEditor {...editor} />
+      {editor && note && <p className={styles.noteMeta}>{note}</p>}
+      {editor && <TagEditor {...editor} />}
       {entry.text.trim() ? (
         <>
           <div className={`${styles.noteText} ${!expanded && isLong ? styles.collapsed : ""}`}>{entry.text}</div>

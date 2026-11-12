@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BUCKETS } from "../../../../lib/ai/buckets";
 import { buildTagIndex, filterTagIndex, searchNotes } from "../../../../lib/tagIndex";
@@ -50,19 +50,35 @@ export default function TagIndexView({
   const params = useSearchParams();
   const [query, setQuery] = useState("");
   const selectedTag = params.get("tag");
-  const untaggedTab = selectedTag === null && params.get("view") === "untagged";
+  const untaggedTab = selectedTag === null && tagState !== null && params.get("view") === "untagged";
 
   const index = buildTagIndex(entries, tagState?.entryTags ?? {}, tagState?.tags ?? {}, BUCKETS);
+  // Dates shown as untagged during this visit stay listed after they gain tags.
+  const [seenUntagged, setSeenUntagged] = useState<string[]>([]);
+  const untaggedKey = index.untagged.join(",");
+  useEffect(() => {
+    setSeenUntagged(prev => {
+      const next = new Set(prev.filter(date => Object.hasOwn(entries, date)));
+      for (const date of index.untagged) next.add(date);
+      return next.size === prev.length && prev.every(date => next.has(date)) ? prev : [...next];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [untaggedKey, entries]);
+  const untaggedList = [...new Set([...seenUntagged, ...index.untagged])]
+    .filter(date => Object.hasOwn(entries, date))
+    .sort()
+    .reverse();
   const hrefFor = (name: string) => `${pathname}?tag=${encodeURIComponent(name)}`;
   const go = (search: string) => router.push(`${pathname}${search}`);
 
-  const renderCards = (dates: string[]): ReactNode =>
+  const renderCards = (dates: string[], untaggedView = false): ReactNode =>
     dates.map(date => (
       <NoteCard
         key={date}
         date={date}
         entry={entries[date]}
-        editor={{ ...editorProps(date, entries[date].text), hrefFor }}
+        note={untaggedView && !index.untagged.includes(date) ? "Tagged" : undefined}
+        editor={tagState ? { ...editorProps(date, entries[date].text), hrefFor } : undefined}
         journalHref={journalHref(date)}
       />
     ));
@@ -96,27 +112,31 @@ export default function TagIndexView({
 
   return (
     <div className={styles.view}>
-      <input
-        type="search"
-        className={styles.search}
-        aria-label="Search tags and notes"
-        placeholder="Search tags and notes"
-        value={query}
-        onChange={event => setQuery(event.target.value)}
-      />
-      <div className={styles.switch} role="group" aria-label="View">
-        <button type="button" aria-pressed={!untaggedTab} className={styles.switchButton} onClick={() => go("")}>Tags</button>
-        <button type="button" aria-pressed={untaggedTab} className={styles.switchButton} onClick={() => go("?view=untagged")}>
-          Untagged ({index.untagged.length})
-        </button>
-      </div>
+      {!untaggedTab && (
+        <input
+          type="search"
+          className={styles.search}
+          aria-label="Search tags and notes"
+          placeholder="Search tags and notes"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+        />
+      )}
+      {tagState && (
+        <div className={styles.switch} role="group" aria-label="View">
+          <button type="button" aria-pressed={!untaggedTab} className={styles.switchButton} onClick={() => go("")}>Tags</button>
+          <button type="button" aria-pressed={untaggedTab} className={styles.switchButton} onClick={() => go("?view=untagged")}>
+            Untagged ({index.untagged.length})
+          </button>
+        </div>
+      )}
 
       {untaggedTab ? (
         <>
           {tagState && <AutoTagBar candidates={candidates} available={tagState.available} autoTag={autoTag} />}
-          {index.untagged.length === 0
+          {untaggedList.length === 0
             ? <p className={styles.empty}>Every note with text has a tag.</p>
-            : <PagedList dates={index.untagged} render={renderCards} />}
+            : <PagedList dates={untaggedList} render={dates => renderCards(dates, true)} />}
         </>
       ) : (
         <>
@@ -147,7 +167,7 @@ export default function TagIndexView({
             </section>
           )}
           {q && groups.length === 0 && matches.length === 0 && <p className={styles.empty}>Nothing matches “{q}”.</p>}
-          {tagState && (
+          {tagState && !q && (
             <section aria-label="AI tools" className={`${pageStyles.aiTools} ${pageStyles.card}`}>
               <TagCleanup due={tagState.cleanupDue} available={tagState.available} onFind={onFindMerges} onMerge={onMerge} />
               <AiUsage onLoad={onLoadUsage} />

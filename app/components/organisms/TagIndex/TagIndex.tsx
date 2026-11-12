@@ -14,7 +14,7 @@ const LOAD_ERROR = "Could not load notes. Check your connection and sign in agai
 export default function TagIndex() {
   const [entries, setEntries] = useState<Record<string, JournalEntryData> | null>(null);
   const [error, setError] = useState("");
-  const { tagState, error: tagError, reload, autoTag, editorProps } = useTagState();
+  const { tagState, loaded, error: tagError, reload, autoTag, editorProps } = useTagState();
 
   const load = useCallback(async () => {
     setError("");
@@ -48,8 +48,8 @@ export default function TagIndex() {
         </div>
       )}
       {tagError && <div role="alert" className={pageStyles.alert}>{tagError}</div>}
-      {!entries && !error && <div className={pageStyles.loading}>Loading notes…</div>}
-      {entries && (
+      {(!entries || !loaded) && !error && <div className={pageStyles.loading}>Loading notes…</div>}
+      {entries && loaded && (
         <div className={pageStyles.layout}>
           <TagIndexView
             entries={entries}

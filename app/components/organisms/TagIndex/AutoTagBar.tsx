@@ -32,17 +32,20 @@ export default function AutoTagBar({ candidates, available, autoTag }: AutoTagBa
     setRunning(true);
     setProgress({ done: 0, total: list.length });
     let failures = 0;
+    let matched = 0;
     for (let i = 0; i < list.length; i++) {
       if (stopRef.current || !aliveRef.current) break;
       const ok = await autoTag(list[i]);
       if (!aliveRef.current) return;
+      if (ok) matched++;
       failures = ok ? 0 : failures + 1;
       setProgress({ done: i + 1, total: list.length });
-      if (failures >= MAX_FAILURES) {
+      if (available && failures >= MAX_FAILURES) {
         setMessage("Auto-tagging stopped. Please retry later.");
         break;
       }
     }
+    if (!available && aliveRef.current) setMessage(`Matched ${matched} of ${list.length} notes.`);
     if (aliveRef.current) setRunning(false);
   }
 

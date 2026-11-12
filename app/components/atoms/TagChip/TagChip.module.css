@@ -25,6 +25,14 @@
   color: inherit;
   text-decoration: none;
   border-radius: 4px;
+  position: relative;
+}
+
+/* Enlarges the tap area to 40px+ without growing the chip. */
+.link::after {
+  content: "";
+  position: absolute;
+  inset: -12px -6px;
 }
 
 .link:hover {
@@ -39,6 +47,8 @@
 
 /* Padding plus negative margin gives a 44x36 tap target without growing the chip. */
 .remove {
+  position: relative;
+  z-index: 1;
   align-self: center;
   flex-shrink: 0;
   box-sizing: border-box;
