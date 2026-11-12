@@ -1,13 +1,13 @@
 import { isAuthenticated, isSameOrigin } from "../../../../lib/auth";
 import { isDate } from "../../../../lib/entries";
-import { normalizeTerms } from "../../../../lib/glossary";
+import { GLOSSARY, normalizeTerms } from "../../../../lib/glossary";
 import { apiKey, modelFor } from "../../../../lib/ai/config";
 import { hashText } from "../../../../lib/ai/hash";
 import { isBucket } from "../../../../lib/ai/buckets";
 import { JOBS } from "../../../../lib/ai/jobs";
 import { anthropicProvider } from "../../../../lib/ai/provider";
 import { runJob } from "../../../../lib/ai/run";
-import { MAX_TAGS_PER_ENTRY, matchTags } from "../../../../lib/ai/tagMatch";
+import { MAX_TAGS_PER_ENTRY, matchTags, needsModel } from "../../../../lib/ai/tagMatch";
 import { getEntryTags, listTags, loadTagContext, pgStore, saveJobTags, saveUserTags } from "../../../../lib/ai/store";
 
 import type { NewTag } from "../../../../lib/ai/store";
@@ -68,8 +68,13 @@ export async function POST(request: Request) {
       return reply(latest?.tags ?? [], latest?.byUser ?? true, await listTags(), {}, false);
     };
 
+    // Code matches alone finish only when no glossary technique outweighs them; otherwise the
+    // model reads the note too and its tags are added after the code matches.
     const matched = matchTags(text, knownNames, normalizeTerms);
-    if (matched.length) return await finish(matched.map((name) => ({ name, newBucket: null })), "code", false);
+    const fromCode: NewTag[] = matched.map((name) => ({ name, newBucket: null }));
+    if (matched.length && !needsModel(text, knownNames, GLOSSARY, normalizeTerms)) {
+      return await finish(fromCode, "code", false);
+    }
 
     const key = apiKey();
     if (key === null) return new Response(UNAVAILABLE, { status: 503 });
@@ -80,9 +85,12 @@ export async function POST(request: Request) {
       { store: pgStore, provider: anthropicProvider(key), model: modelFor("tagNote") },
     );
     if (!result.ok) return new Response(UNAVAILABLE, { status: 503 });
-    const fromJob = result.output.tags.slice(0, MAX_TAGS_PER_ENTRY).map((t) => ({ name: t.tag, newBucket: t.bucket }));
+    const merged: NewTag[] = [...fromCode];
+    for (const t of result.output.tags) {
+      if (!merged.some((m) => m.name === t.tag)) merged.push({ name: t.tag, newBucket: t.bucket });
+    }
     // An empty list is saved too, so the note is not asked about again.
-    return await finish(fromJob, "ai", !result.cached);
+    return await finish(merged.slice(0, MAX_TAGS_PER_ENTRY), "ai", !result.cached);
   } catch {
     return new Response(UNAVAILABLE, { status: 503 });
   }
