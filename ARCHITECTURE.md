@@ -48,8 +48,11 @@ constraint, so anything that plain code can do makes no model call.
 - **Tagging.** A note carries up to five tags. After a successful save the browser asks
   `POST /api/ai/tag` without waiting for it. The server reads the note itself. It skips
   a note whose tags were changed by hand and an unchanged note, then matches every
-  existing tag name found in the text, and only when none is found calls `tagNote`,
-  which returns up to three. A save that leaves the text unchanged asks for nothing.
+  existing tag name found in the text, with a plural or verb ending allowed ("armbars")
+  and a mention right after a cue like "like an" or "instead of" ignored. It calls
+  `tagNote` only when no tag matches or a glossary technique with no tag is mentioned
+  at least as often as the top matched tag, and saves the matches then the model's
+  tags, five at most. A save that leaves the text unchanged asks for nothing.
   Notes never checked are picked up on a later page load, five at most, or all at once
   from the Untagged tab of the Tags screen. Catch-up skips a note that fails and stops
   after two failures in a row.

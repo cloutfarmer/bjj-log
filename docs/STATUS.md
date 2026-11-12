@@ -97,6 +97,17 @@ Each entry gives the date, environment, what ran, and the result.
   "Use the other version" took the other copy, a background change left an open draft
   alone, leaving through the navigation removed the draft after the prompt, and the
   browser's Back button kept it. No sideways scroll at 320, 390, 768 and 1280px.
+- 2026-11-12, LOCAL, no database, on `fix/tag-passing-mentions` (based on `dev` at
+  `03cc24a`): a note about one technique that compared it to another in passing was
+  tagged with the other. Tag matching now accepts plural and verb endings and ignores a
+  mention after a comparison cue, and `POST /api/ai/tag` asks the model when a glossary
+  technique with no tag outweighs the matched tags. `npm run typecheck`, `npm run lint`,
+  `npm run build`, `git diff --check` and the five pure specs (65 tests) passed.
+- 2026-11-12, LOCAL, Neon branch `dev`, server from that build with a key and model:
+  the three notes tagged by text match and never edited by hand were cleared (3 state
+  rows, 5 tag rows) and sent to `POST /api/ai/tag` again. The note behind the fix got
+  the right tags from text alone with no model call; the other two made one model call
+  each and saved text matches together with model tags.
 
 ## Unverified
 
@@ -113,9 +124,11 @@ Each entry gives the date, environment, what ran, and the result.
 - On `feature/ai-data-flow`, the rewritten SQL in `lib/ai/store.ts` (`getTagState`,
   `loadTagContext`, the array inserts in `saveJobTags` and `saveUserTags`) has not run
   against a database. Load `/tags`, add and remove a tag, and auto-tag a note on LOCAL.
+- Notes tagged before the `fix/tag-passing-mentions` fix are not re-checked, because
+  their text is unchanged. On LOCAL the three text-matched notes were cleared by hand
+  and re-tagged; nothing does this elsewhere.
 - Tag quality on real notes is only partly good. With the version 3 prompt every note got
-  plausible tags, but three things were seen and not fixed: a note that mentions one
-  existing tag in passing gets only that tag, because a text match skips the model; the
+  plausible tags, but two things were seen and not fixed: the
   model sometimes returns no tags for a note it tagged on another run, and an empty
   result is saved; and tag names multiply ("collar choke", "gi choke", "lapel choke").
 - Tag cleanup suggestions were poor on the one real list tried: two of three proposed
