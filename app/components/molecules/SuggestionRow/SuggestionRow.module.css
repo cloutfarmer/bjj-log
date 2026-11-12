@@ -1,0 +1,77 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  list-style: none;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+  flex: 1 1 160px;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.from {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.arrow {
+  color: var(--text-muted);
+}
+
+.into {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.accept,
+.reject {
+  min-height: 40px;
+  padding: 4px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.accept {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.accept:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.reject {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+}
+
+.reject:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}

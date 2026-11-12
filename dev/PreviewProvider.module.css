@@ -1,0 +1,19 @@
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 1100px;
+  margin: 0 auto;
+  /* Clears the bottom tab bar on phones. */
+  padding: 0 16px 112px;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}

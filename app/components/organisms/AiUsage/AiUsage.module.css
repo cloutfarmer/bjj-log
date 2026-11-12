@@ -1,0 +1,52 @@
+.usage {
+  min-width: 0;
+  font-size: 0.8125rem;
+}
+
+.summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+}
+
+.table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.caption {
+  padding-bottom: 6px;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.table th,
+.table td {
+  padding: 6px 4px;
+  font-weight: 400;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.table thead th {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-top: 0;
+}
+
+.table tfoot th,
+.table tfoot td { font-weight: 600; }
+
+.table abbr { text-decoration: none; }
+
+.table .num { text-align: right; }

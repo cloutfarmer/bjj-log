@@ -87,7 +87,8 @@ Git rejects that push unless it is a fast-forward.
 
 ## Verification
 
-Run these before opening a PR:
+Run these before opening a PR. The `ci` workflow runs the same checks and
+`node .agent/repository-scan.mjs` on every PR and on each push to `dev`:
 
 ```bash
 npm run typecheck
@@ -109,27 +110,42 @@ Run browser tests when you change the UI, API, or database code. See the
 
 ### Automatic review
 
-`.github/workflows/claude-pr-review.yml` runs the
-[`pr-triage`](.claude/skills/pr-triage/SKILL.md) skill once when a PR is opened,
-reopened, or marked ready. pr-triage runs
-[`ponytail-review`](.claude/skills/ponytail-review/SKILL.md), then sorts each finding:
+Three workflows come from [agent-kit](https://github.com/cloutfarmer/agent-kit) and must
+match it exactly. `.agent/kit.lock` records the kit version, and `kit-check` fails a PR
+when a managed file differs. To change one, change the kit and run its `sync` here on a
+review branch.
 
-- **Tier 1, critical:** always fixed.
+`.github/workflows/agent-brief.yml` runs the
+[`pr-triage`](.claude/skills/pr-triage/SKILL.md) skill when a PR is opened, reopened,
+marked ready, or pushed to. pr-triage reads `.agent/policy.yml` and `.agent/lessons.md`,
+runs [`ponytail-review`](.claude/skills/ponytail-review/SKILL.md), then sorts each
+finding:
+
+- **Tier 1, critical:** fixed, unless the fix touches a human-only path or needs a
+  design decision.
 - **Tier 2, minor:** fixed if trivial or a likely edge case, otherwise filed as an issue.
 - **Tier 3, unreachable or not a bug:** filed as an issue.
 
 Fixes land as one commit, `review: fix tier 1/2 findings from pr-triage`, on the PR
-branch, after `npm run typecheck` and `npm run lint` pass. It skips PRs whose source
-branch is `dev` or `prod`, so it never pushes to either, and never touches migrations, `vercel.json`, `neon.ts`, `scripts/`,
-`.github/`, `.claude/`, or env files. A critical finding there is reported as "needs
-human". It posts one comment with a table of findings and a verdict. Review its fix
-commit like any other before landing the PR.
+branch. The review doesn't run tests: the `ci` workflow runs typecheck, lint, build, and
+the repository scan on the fix commit. It never edits the `human_only_paths` in
+`.agent/policy.yml` and never runs the `never_run` commands listed there. It leaves one
+"Agent brief" comment and exactly one label: `agent/ready`, `human/design`,
+`human/sensitive`, or `agent/could-not-verify`. It never merges. Review its fix commit
+like any other before landing the PR.
 
-It doesn't run on later pushes. To run it again, add the `claude-review` label, which
-the job then removes. It skips drafts, PRs that only change docs or Markdown, and PRs
-from forks: the repository is public and the job holds a token with write access. It
-needs the `CLAUDE_CODE_OAUTH_TOKEN` repository secret. Its comments, issues, and logs
-are public.
+The fix commit is pushed to the PR's source branch, so never open a PR whose source
+branch is `dev` or `prod`. Release by fast-forward as described above.
+
+To run it again without pushing, add the `claude-review` label. It skips drafts, PRs
+that only change docs or Markdown, and PRs from forks: the repository is public and the
+job holds a token with write access. Without the `CLAUDE_CODE_OAUTH_TOKEN` repository
+secret it skips with a warning, and no review runs. Its comments, issues, and logs are
+public.
+
+`.github/workflows/agent-tripwire.yml` opens an issue when a `claude[bot]` commit reaches
+`dev` or the default branch outside a PR. GitHub Free can't block a merge on any of
+these, so treat a failed check as the signal not to land.
 
 ## Database changes
 

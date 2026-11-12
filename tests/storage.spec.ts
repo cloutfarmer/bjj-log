@@ -69,6 +69,30 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText(`${marker} edited`, { exact: true })).toBeVisible();
 
+    // A save based on an older version is refused and changes nothing.
+    const listed = await page.request.get("/api/entries");
+    const tag = listed.headers()["etag"];
+    const version: string = (await listed.json())[date].version;
+    expect(version).toMatch(/^\d{20}$/);
+    expect((await page.request.get("/api/entries", { headers: { "If-None-Match": tag } })).status()).toBe(304);
+    const stale = { text: `${marker} stale`, sessionTypes: [], attire: null };
+    const older = String(BigInt(version) - BigInt(1)).padStart(20, "0");
+    const refused = await page.request.put("/api/entries", { headers, data: { date, entry: stale, baseVersion: older } });
+    expect(refused.status()).toBe(409);
+    expect((await refused.json()).current).toEqual({ text: `${marker} edited`, sessionTypes: ["class"], attire: "gi", version });
+    // Creating a day that already exists, and clearing one from an older version, are refused too.
+    expect((await page.request.put("/api/entries", { headers, data: { date, entry: stale, baseVersion: null } })).status()).toBe(409);
+    expect((await page.request.put("/api/entries", { headers, data: { date, entry: { text: "", sessionTypes: [], attire: null }, baseVersion: older } })).status()).toBe(409);
+    expect((await page.request.put("/api/entries", { headers, data: { date, entry: stale, baseVersion: "not-a-version" } })).status()).toBe(400);
+    expect((await (await page.request.get("/api/entries")).json())[date]).toEqual({ text: `${marker} edited`, sessionTypes: ["class"], attire: "gi", version });
+    // Nothing changed, so the collection tag still matches.
+    expect((await page.request.get("/api/entries", { headers: { "If-None-Match": tag } })).status()).toBe(304);
+    // A save from the current version is accepted, moves the version on, and changes the tag.
+    const accepted = await page.request.put("/api/entries", { headers, data: { date, entry: { text: `${marker} edited`, sessionTypes: ["class"], attire: "gi" }, baseVersion: version } });
+    expect(accepted.ok()).toBeTruthy();
+    expect((await accepted.json()).version > version).toBe(true);
+    expect((await page.request.get("/api/entries", { headers: { "If-None-Match": tag } })).status()).toBe(200);
+
     const secondContext = await browser.newContext({ baseURL });
     try {
       const secondPage = await secondContext.newPage();
@@ -84,9 +108,9 @@ test("Neon saves, edits, persists across browsers, imports safely, and deletes",
     await page.getByRole("button", { name: "Import browser notes" }).click();
     await expect(page.getByRole("status")).toContainText("Imported 1 notes");
     const afterImport = await (await page.request.get("/api/entries")).json();
-    expect(afterImport[date]).toEqual({ text: `${marker} edited`, sessionTypes: ["class"], attire: "gi" });
+    expect(afterImport[date]).toMatchObject({ text: `${marker} edited`, sessionTypes: ["class"], attire: "gi" });
     // Legacy string notes predate the field, so they import as unrecorded rather than guessed.
-    expect(afterImport[legacyDate]).toEqual({ text: `${marker} legacy`, sessionTypes: [], attire: null });
+    expect(afterImport[legacyDate]).toMatchObject({ text: `${marker} legacy`, sessionTypes: [], attire: null });
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bjj-log-entries")!))).toEqual(legacy);
     const repeat = await page.request.post("/api/entries/import", { headers, data: legacy });
     expect(await repeat.json()).toEqual({ imported: 0 });

@@ -12,18 +12,24 @@ npm run lint
 npm run build
 git diff --check
 npm audit
-npx playwright test tests/stats.spec.ts
+npx playwright test tests/stats.spec.ts tests/journal-store.spec.ts tests/ai-core.spec.ts tests/glossary.spec.ts tests/tag-index.spec.ts
 ```
 
-The stats spec tests a pure function and opens no browser or server.
+These five specs test pure functions and open no browser or server. The AI core spec
+uses a fake provider, so it makes no model call and spends no tokens.
 `npm run build` reads `.env.local` but doesn't apply migrations or change data.
 
-## Preview page: always safe
+## Preview pages: always safe
 
-**LOCAL.** Run `npm run dev` and open http://localhost:3000/dev. It renders the real
-calendar, training stats, and entry with made-up data from `dev/fixtures.ts`, and needs no
-database, password, or network. Saves stay in memory. It's not part of production builds;
-after `npm run build`, `/dev` must not appear in the route list. Use it for layout checks
+**LOCAL.** Run `npm run dev` and open http://localhost:3000/dev for the journal. The
+navigation there reaches the other previews: `/dev/calendar`, `/dev/tags`,
+`/dev/tags/<name>`, and `/dev/untagged`. They render the real components with
+made-up data from `dev/fixtures.ts`, and need no database, password, or network. Saves and
+tag edits stay in memory. Two controls under the journal preview imitate another device:
+"Next save conflicts" makes the next save be refused, and "Change the saved copy"
+replaces the saved entry in the background. Unsaved drafts there go to this browser's
+localStorage like real ones. They're not part of production builds; after `npm run build`,
+no `/dev` route may appear in the route list. Use it for layout checks
 and screenshots.
 
 ## Browser tests
@@ -67,7 +73,8 @@ running there.
 ## What the storage test does
 
 `tests/storage.spec.ts` uses two unused dates in the current month. It creates, edits,
-imports, and deletes entries, then checks that all entries match the snapshot it took at
+imports, and deletes entries, checks that a save from an older version is refused and that
+an unchanged journal answers 304, then checks that all entries match the snapshot it took at
 the start. It removes its test rows in a `finally` block, so a run killed outright can
 still leave rows starting with `Storage verification`. Avoid editing those dates during a
 run.
