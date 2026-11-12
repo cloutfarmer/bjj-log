@@ -28,7 +28,9 @@ Built with Next.js, React, TypeScript, and Postgres, and deployed on Vercel. I u
 - **Careful migrations.** [`scripts/migrate.mjs`](scripts/migrate.mjs) runs in one transaction under an advisory lock and rejects any applied migration whose checksum has changed. Builds never apply migrations.
 - **Non-destructive import.** One atomic SQL statement adds only dates that are missing, so a retry is safe and existing entries are never overwritten.
 - **Deliberate releases.** Only the `prod` branch can deploy, enforced by both [`vercel.json`](vercel.json) and a build-time check.
-- **No lost drafts.** A failed save keeps the editor open with your text intact.
+- **No lost drafts.** A failed save keeps the editor open with your text intact, and an unsaved draft survives a reload.
+- **No silent overwrites.** Each save names the version it started from. If the note changed on another device, nothing is written and you choose which copy to keep.
+- **Cheap rechecks.** The journal is loaded once and shared by every screen. Checking for changes costs one small query and no download when nothing changed.
 - **Frugal AI.** Every model call goes through one layer with a hard output cap per job. Outputs are saved with a hash of their input, so unchanged input costs nothing, and a text match against existing tags is tried before any call. Token counts are recorded per job.
 
 The [architecture guide](ARCHITECTURE.md) covers the data flow, module boundaries, and the reason behind each invariant.
@@ -74,7 +76,7 @@ Browser tests use Playwright, and one of them writes to the database, so read th
 | `app/(app)/` | The signed-in screens and the layout they share |
 | `app/components/` | Journal, calendar, entry editor, tag screens, and navigation UI |
 | `app/api/` | HTTP routes for entries, import, login, logout, and the AI features under `app/api/ai/` |
-| `lib/` | Entry validation, authentication, the database pool, and the journal state shared by the screens |
+| `lib/` | Entry validation, the browser's journal store and drafts, the journal state shared by the screens, authentication, and the database pool |
 | `lib/ai/` | The AI layer: job runner, job definitions, context builder, provider, and store |
 | `lib/glossary.ts` | Technique-name spelling suggestions, with no AI call |
 | `db/migrations/` | Ordered SQL migrations |

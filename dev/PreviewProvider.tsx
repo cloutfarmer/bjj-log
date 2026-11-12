@@ -4,29 +4,35 @@
  * data, and no database, auth, or network. Mounted by app/dev/layout.dev.tsx, which
  * next.config.mjs leaves out of production builds. Saves and tag edits stay in memory. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { BUCKETS } from "../lib/ai/buckets";
+import { isEmptyEntry } from "../lib/entries";
+import { SaveConflictError } from "../lib/entrySync";
 import { MAX_TAGS_PER_ENTRY } from "../lib/ai/tagMatch";
 import { suggestTags } from "../lib/tagIndex";
-import { JournalContext, tagHref } from "../lib/useJournal";
+import { JournalContext, tagHref, useDraftGuard } from "../lib/useJournal";
 import { buildPreviewFixtures } from "./fixtures";
+import styles from "./PreviewProvider.module.css";
 
 import type { EntryTags, TagState } from "../lib/aiClient";
 import type { JournalValue, ScreenHrefs } from "../lib/useJournal";
-import type { JournalEntryData } from "../app/types";
+import type { JournalEntryData, SavedEntry } from "../app/types";
 
 type Fixtures = ReturnType<typeof buildPreviewFixtures>;
 
 const PREVIEW_HREFS: ScreenHrefs = { journal: "/dev", calendar: "/dev/calendar", tags: "/dev/tags", untagged: "/dev/untagged" };
-const DISCARD_PROMPT = "Discard unsaved changes?";
 
 export default function PreviewProvider({ children }: { children: ReactNode }) {
   // Built after mount so the server and browser agree on "today".
   const [fixtures, setFixtures] = useState<Fixtures | null>(null);
-  const [entries, setEntries] = useState<Record<string, JournalEntryData>>({});
+  const [entries, setEntries] = useState<Record<string, SavedEntry>>({});
+  // Makes the next save answer as if the day had been changed on another device.
+  const [conflictNext, setConflictNext] = useState(false);
+  const pathname = usePathname();
   const [entryTags, setEntryTags] = useState<Record<string, EntryTags>>({});
   const [tags, setTags] = useState<Record<string, string>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const { dirty, setDirty, confirmSwitch, confirmLeave } = useDraftGuard(selectedDate);
   const [notice, setNotice] = useState("");
   // Always the latest, so an auto-tag loop builds on its own earlier steps.
   const latest = useRef({ tags, entryTags });
@@ -35,7 +41,7 @@ export default function PreviewProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const built = buildPreviewFixtures(new Date());
     setFixtures(built);
-    setEntries(built.entries);
+    setEntries(Object.fromEntries(Object.entries(built.entries).map(([date, entry]) => [date, { ...entry, version: "" }])));
     setEntryTags(built.entryTags);
     setTags(built.tags);
     setSelectedDate(built.featuredDate);
@@ -43,20 +49,31 @@ export default function PreviewProvider({ children }: { children: ReactNode }) {
 
   function selectDate(date: string) {
     if (date === selectedDate) return true;
-    if (dirty && !window.confirm(DISCARD_PROMPT)) return false;
-    setDirty(false);
+    if (!confirmSwitch()) return false;
     setSelectedDate(date);
     return true;
   }
 
   // An empty entry is deleted, as in lib/useJournal.tsx.
-  async function save(date: string, entry: JournalEntryData) {
+  function store(date: string, entry: JournalEntryData | null) {
     setEntries(previous => {
       const updated = { ...previous };
-      if (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire) delete updated[date];
-      else updated[date] = entry;
+      if (!entry || isEmptyEntry(entry)) delete updated[date];
+      else updated[date] = { ...entry, version: "" };
       return updated;
     });
+  }
+  async function save(date: string, entry: JournalEntryData) {
+    if (conflictNext) {
+      setConflictNext(false);
+      throw new SaveConflictError({
+        text: "Made-up note from another device.\nKnee cut: pin the far hip first.",
+        sessionTypes: ["open-mat"],
+        attire: "nogi",
+        version: "",
+      });
+    }
+    store(date, entry);
     setNotice("Saved to your journal.");
   }
 
@@ -114,8 +131,9 @@ export default function PreviewProvider({ children }: { children: ReactNode }) {
     busy: false,
     dirty,
     setDirty,
-    confirmLeave: () => !dirty || window.confirm(DISCARD_PROMPT),
+    confirmLeave,
     save,
+    adopt: store,
     pendingImportCount: 0,
     importNotes: () => undefined,
     tagState,
@@ -141,5 +159,27 @@ export default function PreviewProvider({ children }: { children: ReactNode }) {
     loadUsage: async () => fixtures?.usage ?? null,
   };
 
-  return <JournalContext.Provider value={value}>{children}</JournalContext.Provider>;
+  return (
+    <JournalContext.Provider value={value}>
+      {children}
+      {/* Imitate another device, to try the conflict and background-change handling. */}
+      {pathname === PREVIEW_HREFS.journal && fixtures && (
+        <div className={styles.controls}>
+          <label className={styles.control}>
+            <input type="checkbox" checked={conflictNext} onChange={event => setConflictNext(event.target.checked)} />
+            Next save conflicts
+          </label>
+          <button
+            type="button"
+            className={styles.control}
+            onClick={() => {
+              if (selectedDate) store(selectedDate, { text: "Made-up background change.", sessionTypes: ["drilling"], attire: null });
+            }}
+          >
+            Change the saved copy
+          </button>
+        </div>
+      )}
+    </JournalContext.Provider>
+  );
 }

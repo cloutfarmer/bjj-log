@@ -13,6 +13,12 @@ export function isDate(value: unknown): value is string {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+/** The one rule for "this day has nothing in it", shared by the editor and the API. */
+export function isEmptyEntry(entry: JournalEntryData): boolean {
+  // Attire alone still counts as a logged session, so it keeps the day on the calendar.
+  return !entry.text.trim() && entry.sessionTypes.length === 0 && entry.attire === null;
+}
+
 /** JSON from storage or HTTP is unknown until its contents are checked. */
 export function parseEntry(value: unknown): JournalEntryData | null {
   if (typeof value === "string") value = { text: value, sessionTypes: [], attire: null };

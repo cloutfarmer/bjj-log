@@ -197,6 +197,43 @@
   margin-bottom: 16px;
 }
 
+.draftNote {
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.conflict {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 2px 0 0 var(--negative);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.conflict > p + p {
+  margin-top: 12px;
+}
+
+.conflictMeta {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.conflictText {
+  max-height: 200px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .container { max-width:none; scroll-margin-top:16px; }
 .textarea { font-size:16px; }
 @media(max-width:480px) { .pill { padding:8px 12px; } .textarea { min-height:220px; } .actions button { flex:1; } }

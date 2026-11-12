@@ -12,10 +12,10 @@ npm run lint
 npm run build
 git diff --check
 npm audit
-npx playwright test tests/stats.spec.ts tests/ai-core.spec.ts tests/glossary.spec.ts tests/tag-index.spec.ts
+npx playwright test tests/stats.spec.ts tests/journal-store.spec.ts tests/ai-core.spec.ts tests/glossary.spec.ts tests/tag-index.spec.ts
 ```
 
-These four specs test pure functions and open no browser or server. The AI core spec
+These five specs test pure functions and open no browser or server. The AI core spec
 uses a fake provider, so it makes no model call and spends no tokens.
 `npm run build` reads `.env.local` but doesn't apply migrations or change data.
 
@@ -25,7 +25,10 @@ uses a fake provider, so it makes no model call and spends no tokens.
 navigation there reaches the other previews: `/dev/calendar`, `/dev/tags`,
 `/dev/tags/<name>`, and `/dev/untagged`. They render the real components with
 made-up data from `dev/fixtures.ts`, and need no database, password, or network. Saves and
-tag edits stay in memory. They're not part of production builds; after `npm run build`,
+tag edits stay in memory. Two controls under the journal preview imitate another device:
+"Next save conflicts" makes the next save be refused, and "Change the saved copy"
+replaces the saved entry in the background. Unsaved drafts there go to this browser's
+localStorage like real ones. They're not part of production builds; after `npm run build`,
 no `/dev` route may appear in the route list. Use it for layout checks
 and screenshots.
 
@@ -70,7 +73,8 @@ running there.
 ## What the storage test does
 
 `tests/storage.spec.ts` uses two unused dates in the current month. It creates, edits,
-imports, and deletes entries, then checks that all entries match the snapshot it took at
+imports, and deletes entries, checks that a save from an older version is refused and that
+an unchanged journal answers 304, then checks that all entries match the snapshot it took at
 the start. It removes its test rows in a `finally` block, so a run killed outright can
 still leave rows starting with `Storage verification`. Avoid editing those dates during a
 run.

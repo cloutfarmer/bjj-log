@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { clearAllDrafts } from "../../../../lib/drafts";
 import { useJournal } from "../../../../lib/useJournal";
 import LogoMark from "../../atoms/LogoMark/LogoMark";
 import AppNav from "../AppNav/AppNav";
@@ -36,7 +37,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             action="/api/logout"
             method="post"
             className={styles.signOutForm}
-            onSubmit={event => { if (!confirmLeave()) event.preventDefault(); }}
+            onSubmit={event => { if (!confirmLeave()) event.preventDefault(); else clearAllDrafts(); }}
           >
             <button className={pageStyles.signOut} type="submit">Sign out</button>
           </form>

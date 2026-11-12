@@ -6,6 +6,7 @@ the server using Neon branch `dev`.
 | Group | Files | Requirements and effects |
 |---|---|---|
 | Training stats | `stats.spec.ts` | Pure function tests with made-up dates. No server, browser, or database. Always safe |
+| Journal store | `journal-store.spec.ts` | Pure function tests with made-up notes: versions, the collection tag, merging, and draft parsing. No server, browser, or database. Always safe |
 | AI core | `ai-core.spec.ts` | Pure function tests with a fake provider and an in-memory store. No server, browser, database, or model call. Always safe |
 | Tag index | `tag-index.spec.ts` | Pure function tests with made-up notes: the tag index, note search, and tag suggestions. No server, browser, or database. Always safe |
 | Glossary | `glossary.spec.ts` | Pure function tests with made-up sentences. No server, browser, or database. Always safe |

@@ -24,8 +24,8 @@ Anthropic Messages API (optional: without a key the journal works untagged)
 ```
 
 The website and API deploy together as one Next.js app. There is no separate backend
-or background worker. The app needs an internet connection: there is no offline mode,
-and a draft is lost if the page closes before a successful save.
+or background worker. The app needs an internet connection to read or save: there is no
+offline mode. An unsaved draft is kept in the browser until it is saved or discarded.
 
 ## AI layer
 
@@ -91,22 +91,43 @@ a bottom tab bar at 768px and below, header links above that.
 
 **Reading.** `app/(app)/layout.tsx` checks the session and wraps every screen in one
 `JournalProvider` and one `AppShell`, or redirects to `/login`. Each page checks the
-session again, because a layout doesn't re-run on client navigation. The provider fetches
-`GET /api/entries` (every entry as an object keyed by date) and `GET /api/ai/tags` once.
-It stays mounted while the user moves between screens, so the entries, tags, and selected
-day are kept and nothing is fetched again.
+session again, because a layout doesn't re-run on client navigation. The provider reads
+the store in `lib/journalStore.ts`, which fetches `GET /api/entries` once and holds the
+result in page memory, and it fetches `GET /api/ai/tags` once. It stays mounted while the
+user moves between screens, so the entries, tags, and selected day are kept. The route
+returns every entry as an object keyed by date. Each entry carries a `version`, which is
+its `updated_at` as 20 digits, and the response carries an `ETag` built from the row
+count and the newest version.
 
 **Looking up.** The selected tag lives in the path, so Back works and a tag chip anywhere
 links straight to its notes. Picking a day on the Calendar screen selects it and opens
 the journal. "Open in journal" links to `/?date=YYYY-MM-DD`; the journal selects that day
 and removes the parameter.
 
-**Saving.** The editor sends `PUT /api/entries` with one date and one entry. The route
-checks the session and origin, validates the body, then upserts the row. If the entry
-is empty, it deletes the row instead.
+**Rechecking.** When the tab becomes visible or focused, at most once every 30 seconds
+and never while a draft is open, the store asks again with `If-None-Match`. If nothing
+changed, the route answers 304 from one small query and sends no notes. Otherwise the
+store adopts the new copy and keeps the existing object for every unchanged entry.
+Responses stay `no-store`, so notes are never written to the browser's disk cache.
+
+**Saving.** The editor sends `PUT /api/entries` with one date, one entry, and
+`baseVersion`: the version the draft started from, or null for a day that had no entry.
+The route checks the session and origin, validates the body, then writes only if the row
+is still at that version. If the entry is empty, it deletes the row instead. When the row
+has changed, the route writes nothing and answers 409 with the current entry. The editor
+keeps the draft, shows the other copy, and lets the user save over it or take it. A
+request with no `baseVersion` field saves unconditionally, for a page loaded before
+versions existed. Saving with no changes sends nothing.
+
+**Drafts.** While the editor has unsaved changes, `lib/drafts.ts` keeps the draft in
+localStorage under `bjj-log-draft:<date>`, with the version it started from. Opening that
+day restores it. It is removed when saved or cancelled, when the user agrees to discard
+it by picking another day or another screen, and every draft is removed on sign-out.
+Leaving the journal with the browser's Back button keeps it. Saved notes are never stored
+in the browser.
 
 **Importing.** Before the cloud version, notes lived in browser localStorage under
-`bjj-log-entries`. If they are still there, `Journal` offers an import, which sends
+`bjj-log-entries`. If they are still there, `JournalProvider` offers an import, which sends
 them to `POST /api/entries/import`. The whole request is one SQL statement, so it
 either fully applies or doesn't apply at all.
 
@@ -152,6 +173,9 @@ AI output and tags live in five separate tables, added by `db/migrations/003_ai.
 | `app/types.ts` | Shared entry types and attire options |
 | `app/api/` | HTTP routes: entries, import, login, logout |
 | `lib/entries.ts` | Runtime validation of untrusted entry data |
+| `lib/entrySync.ts` | Pure version, collection-tag, and merge helpers shared by the route and the browser |
+| `lib/journalStore.ts` | The browser's one in-memory copy of the journal, and its recheck |
+| `lib/drafts.ts` | Unsaved drafts in browser storage |
 | `lib/auth.ts` | Password check, session signing, same-origin check. Server only |
 | `lib/db.ts` | Lazily created `pg` pool. Server only |
 | `lib/ai/` | The AI layer: `run.ts`, `jobs/`, `context.ts`, `hash.ts`, `tagMatch.ts`, and `buckets.ts` are pure and take the store and provider as arguments. `config.ts`, `provider.ts`, and `store.ts` are server only |
@@ -166,7 +190,9 @@ AI output and tags live in five separate tables, added by `db/migrations/003_ai.
 | `tests/` | Playwright browser tests |
 | `dev/`, `app/dev/**/*.dev.tsx` | Development-only previews under `/dev`: every screen's real components inside `PreviewProvider`, which fills the same context with made-up fixtures |
 
-Entry and tag state live in `JournalProvider`, and screens read them with `useJournal()`. Interactive components are client
+Saved entries live in the store in `lib/journalStore.ts`. `JournalProvider` reads it and adds
+the selected day, saving, and tag state, and screens read all of it with `useJournal()`.
+Editor state lives in `JournalEntry`. Interactive components are client
 components. Styling uses CSS Modules with dark-theme variables from `app/globals.css`
 and the system font stack, with no UI library or external font. In the calendar, today
 has a green highlight and the selected day a blue one. Entry dots are tinted by attire
@@ -201,7 +227,10 @@ and stay blue when none is recorded.
 | Input is validated at runtime by `lib/entries.ts` | TypeScript types don't exist at runtime, and HTTP and localStorage data can be anything |
 | Import never overwrites a cloud entry and leaves the browser copy alone | Old browser notes must never replace newer work, and a retry must be safe |
 | An entry with no text, no session types, and no attire is deleted, using the same rule on client and server | A session can be logged by attire alone, and the two sides must agree on whether a day exists |
-| A failed save keeps the draft open | A draft exists only in the page, so closing the editor would lose it |
+| A failed or refused save keeps the draft open | Closing the editor would throw away unsaved work |
+| A save never replaces a version the editor hasn't seen | A page left open on one device must not silently overwrite a newer note from another |
+| An entry never changes under an open draft | The editor resets when its entry changes, so a background recheck would discard the draft |
+| Saved notes are held in page memory only; only unsaved drafts are stored in the browser, and sign-out removes them | The journal is private, and a shared or lost device shouldn't keep a copy |
 | Builds never apply migrations | Vercel builds shouldn't change a live database as a side effect |
 | An applied migration is never edited | `scripts/migrate.mjs` records checksums and rejects changes, so history stays reproducible |
 | Migrations run in one transaction under an advisory lock | A failed or concurrent run can't leave the schema half changed |

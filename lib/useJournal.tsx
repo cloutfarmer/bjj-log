@@ -2,12 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { fetchUsage, mergeTags, requestClean, requestCleanup } from "./aiClient";
-import { isDate, parseEntry } from "./entries";
+import { clearDraft } from "./drafts";
+import { isDate, isEmptyEntry, parseEntry } from "./entries";
+import { SaveConflictError, parseSavedEntry } from "./entrySync";
+import { applySaved, loadEntries, pauseRechecks, useJournal as useJournalStore } from "./journalStore";
 import { useTagState } from "./useTagState";
 
 import type { AiUsage, TagMerge, TagState, TextEdit } from "./aiClient";
 import type { TagEditorProps } from "./useTagState";
-import type { Attire, JournalEntryData } from "../app/types";
+import type { Attire, JournalEntryData, SavedEntry } from "../app/types";
 
 /** Where each screen lives. The /dev previews point these inside /dev. */
 export interface ScreenHrefs {
@@ -42,7 +45,7 @@ export interface JournalValue {
   /** False hides the sign-out form (the /dev previews have no session). */
   signOut: boolean;
 
-  entries: Record<string, JournalEntryData>;
+  entries: Record<string, SavedEntry>;
   /** Entries have loaded; screens render only after this. */
   ready: boolean;
   error: string;
@@ -56,9 +59,15 @@ export interface JournalValue {
   busy: boolean;
   dirty: boolean;
   setDirty: (dirty: boolean) => void;
-  /** Returns false to cancel leaving the journal (unsaved draft). */
+  /** Returns false to cancel leaving the journal (unsaved draft). Leaving discards the draft. */
   confirmLeave: () => boolean;
-  save: (date: string, entry: JournalEntryData) => Promise<void>;
+  /**
+   * baseVersion is the saved version the draft started from; the server refuses a save
+   * over any other, and this then rejects with SaveConflictError.
+   */
+  save: (date: string, entry: JournalEntryData, baseVersion: string | null | undefined) => Promise<void>;
+  /** Takes the server's copy after a refused save. null means the day was deleted. */
+  adopt: (date: string, current: SavedEntry | null) => void;
 
   /** Browser notes from the pre-cloud version that the journal does not have. */
   pendingImportCount: number;
@@ -88,30 +97,67 @@ export function useJournal(): JournalValue {
 const STORAGE_KEY = "bjj-log-entries";
 const DISCARD_PROMPT = "Discard unsaved changes?";
 const CATCH_UP_LIMIT = 5;
-const isEmpty = (entry: JournalEntryData) => !entry.text.trim() && !entry.sessionTypes.length && !entry.attire;
 
-/** Loads the journal once for every screen and owns the calls that change it. */
+/**
+ * The unsaved-draft check shared by the live provider and the /dev preview. The editor
+ * reports whether it holds a draft; picking another day or leaving the journal asks first,
+ * and agreeing discards the draft from browser storage too.
+ */
+export function useDraftGuard(selectedDate: string | null) {
+  const [dirty, setDirtyState] = useState(false);
+  // The day whose draft the user agreed to discard by leaving the journal. The draft is
+  // removed when the editor unmounts, because until then the editor may write it again.
+  const discardRef = useRef<string | null>(null);
+
+  const setDirty = useCallback((value: boolean) => {
+    setDirtyState(value);
+    if (!value && discardRef.current) {
+      clearDraft(discardRef.current);
+      discardRef.current = null;
+    }
+  }, []);
+
+  /** Before picking another day. Returns false to keep the draft and stay. */
+  function confirmSwitch() {
+    if (!dirty) return true;
+    if (!window.confirm(DISCARD_PROMPT)) return false;
+    if (selectedDate) clearDraft(selectedDate);
+    setDirty(false);
+    return true;
+  }
+
+  /** Before leaving the journal screen. Returns false to keep the draft and stay. */
+  function confirmLeave() {
+    if (!dirty) return true;
+    if (!window.confirm(DISCARD_PROMPT)) return false;
+    discardRef.current = selectedDate;
+    return true;
+  }
+
+  return { dirty, setDirty, confirmSwitch, confirmLeave };
+}
+
+/** Reads the journal store for every screen and owns the calls that change it. */
 export function JournalProvider({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<Record<string, JournalEntryData>>({});
-  const [ready, setReady] = useState(false);
+  // Saved entries live in lib/journalStore.ts, which loads them once and rechecks on focus.
+  const journal = useJournalStore();
+  const { entries, ready } = journal;
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const { dirty, setDirty, confirmSwitch, confirmLeave } = useDraftGuard(selectedDate);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [localNotes, setLocalNotes] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const tag = useTagState();
   const { tagState, reload, autoTag, forget } = tag;
-  // React strict mode runs mount effects twice in dev; loading and the catch-up must run once.
+  // React strict mode runs mount effects twice in dev; the catch-up must run once.
   const startedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    const response = await fetch("/api/entries", { cache: "no-store" });
-    if (!response.ok) throw new Error("Could not load notes. Check your connection and sign in again if needed.");
-    const data: Record<string, JournalEntryData> = await response.json();
-    setEntries(data);
-    setReady(true);
-  }, []);
+  // An open draft must not have its entry replaced under it by a background check.
+  useEffect(() => {
+    pauseRechecks(dirty);
+    return () => pauseRechecks(false);
+  }, [dirty]);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -123,12 +169,8 @@ export function JournalProvider({ children }: { children: ReactNode }) {
     } catch { /* Cloud notes still work if browser storage is unavailable. */ }
     void (async () => {
       const tagsLoading = reload();
-      try {
-        await refresh();
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not load notes.");
-        return;
-      }
+      // The store reports a failed load itself; this only waits for the first answer.
+      await loadEntries();
       // Tags notes saved while AI was unavailable, newest first and one at a time to keep provider load low.
       const state = await tagsLoading;
       if (!state) return;
@@ -141,44 +183,51 @@ export function JournalProvider({ children }: { children: ReactNode }) {
         if (await autoTag(date)) { tagged++; failures = 0; } else failures++;
       }
     })();
-  }, [refresh, reload, autoTag]);
+  }, [reload, autoTag]);
 
   const retry = useCallback(() => {
     setError("");
-    refresh().catch((cause: Error) => setError(cause.message));
-  }, [refresh]);
+    void loadEntries();
+  }, []);
 
   function selectDate(date: string) {
     if (date === selectedDate) return true;
-    if (dirty && !window.confirm(DISCARD_PROMPT)) return false;
-    setDirty(false);
+    if (!confirmSwitch()) return false;
     setSelectedDate(date);
     return true;
   }
 
-  async function save(dateStr: string, entry: JournalEntryData) {
+  async function save(dateStr: string, entry: JournalEntryData, baseVersion: string | null | undefined) {
     setBusy(true);
     setNotice("");
     const previousText = entries[dateStr]?.text;
     try {
       const response = await fetch("/api/entries", {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: dateStr, entry }),
+        body: JSON.stringify({ date: dateStr, entry, baseVersion }),
       });
+      if (response.status === 409) {
+        const body: unknown = await response.json().catch(() => null);
+        const current = body && typeof body === "object" ? parseSavedEntry((body as { current?: unknown }).current) : null;
+        throw new SaveConflictError(current);
+      }
       if (!response.ok) throw new Error("Could not save. Your draft is still open; check your connection or sign in again, then retry.");
-      setEntries(previous => {
-        const updated = { ...previous };
-        // Must match the server's rule in app/api/entries/route.ts, attire included.
-        if (isEmpty(entry)) delete updated[dateStr];
-        else updated[dateStr] = entry;
-        return updated;
-      });
+      const result: unknown = await response.json().catch(() => null);
+      const version = result && typeof result === "object" ? (result as { version?: unknown }).version : undefined;
+      // isEmptyEntry is also the server's rule in app/api/entries/route.ts.
+      applySaved(dateStr, isEmptyEntry(entry) ? null : { ...entry, version: typeof version === "string" ? version : "" });
       setNotice("Saved to your journal.");
       // Tagging is best effort and never delays or fails the save.
-      if (isEmpty(entry)) forget(dateStr);
+      if (isEmptyEntry(entry)) forget(dateStr);
       // Tags come from the text, so a save that leaves it unchanged asks for nothing.
       if (entry.text.trim() && tagState && entry.text !== previousText) void autoTag(dateStr);
     } finally { setBusy(false); }
+  }
+
+  function adopt(dateStr: string, current: SavedEntry | null) {
+    applySaved(dateStr, current);
+    setNotice("");
+    if (!current) forget(dateStr);
   }
 
   // Offer only meaningful browser notes whose dates are absent from the cloud.
@@ -189,7 +238,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         pendingImport = Object.fromEntries(Object.entries(parsed).flatMap(([date, value]) => {
           const entry = parseEntry(value);
-          return isDate(date) && !Object.hasOwn(entries, date) && entry && !isEmpty(entry) ? [[date, entry]] : [];
+          return isDate(date) && !Object.hasOwn(entries, date) && entry && !isEmptyEntry(entry) ? [[date, entry]] : [];
         }));
       }
     } catch { /* Invalid or empty browser data is not an importable note. */ }
@@ -205,7 +254,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
       });
       if (!response.ok) throw new Error("Could not import notes. Your original browser notes are unchanged.");
       const result: { imported: number } = await response.json();
-      await refresh();
+      await loadEntries({ full: true });
       setLocalNotes(null);
       setNotice(`Imported ${result.imported} notes. Existing cloud notes were kept; browser originals remain untouched.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Import failed."); }
@@ -217,7 +266,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
     signOut: true,
     entries,
     ready,
-    error,
+    error: error || journal.error,
     notice,
     clearNotice: () => setNotice(""),
     retry,
@@ -226,8 +275,9 @@ export function JournalProvider({ children }: { children: ReactNode }) {
     busy,
     dirty,
     setDirty,
-    confirmLeave: () => !dirty || window.confirm(DISCARD_PROMPT),
+    confirmLeave,
     save,
+    adopt,
     pendingImportCount: Object.keys(pendingImport).length,
     importNotes: () => { void importNotes(); },
     tagState,

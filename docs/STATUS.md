@@ -85,8 +85,24 @@ Each entry gives the date, environment, what ran, and the result.
   (50 tests) passed. `/dev` and `/dev/tags` rendered at 390px wide with no error other
   than the known `/favicon.ico` 404.
 
+- 2026-11-12, LOCAL, no database, on `feature/screens-data-flow`: the screens branch with
+  the commits of `feature/ai-data-flow` and `feature/data-flow` applied on top. Their
+  changes to `Journal.tsx` moved into `lib/useJournal.tsx`: `JournalProvider` now reads
+  `lib/journalStore.ts` instead of fetching entries itself, saves send `baseVersion`, and
+  the preview's two "another device" controls moved into `dev/PreviewProvider.tsx`.
+  `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` and the five
+  pure specs (60 tests) passed. `tests/layout.spec.ts` passed (2 tests) against
+  `npm start` with a throwaway password and no database settings. On the `/dev` preview:
+  a draft survived a reload and Cancel removed it, a refused save kept the draft and
+  "Use the other version" took the other copy, a background change left an open draft
+  alone, leaving through the navigation removed the draft after the prompt, and the
+  browser's Back button kept it. No sideways scroll at 320, 390, 768 and 1280px.
+
 ## Unverified
 
+- On `feature/screens-data-flow`, nothing has run against a database: the SQL in
+  `app/api/entries/route.ts` and `lib/ai/store.ts`, versioned saves, the 409 answer, the
+  304 recheck, and `tests/storage.spec.ts`. The checks above used made-up or mocked data.
 - The four screens have not been seen signed in with real data: the checks above used
   made-up data or mocked routes. The bottom tab bar's safe-area padding was not checked on
   a phone. `docs/images/journal.png` shows the earlier layout.

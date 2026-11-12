@@ -16,6 +16,9 @@ export interface JournalEntryData {
   attire: Attire | null;
 }
 
+/** An entry as the server holds it. `version` changes on every save; "" means unknown. */
+export type SavedEntry = JournalEntryData & { version: string };
+
 /** Early versions stored just the note text; both formats remain readable. */
 export type StoredEntry = string | JournalEntryData;
 
