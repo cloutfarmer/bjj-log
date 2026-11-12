@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: "A private journal for Brazilian jiu-jitsu training",
 };
 
-export const viewport: Viewport = { themeColor: "#0d1017" };
+// viewport-fit=cover lets the bottom tab bar pad itself past the phone's home indicator.
+export const viewport: Viewport = { themeColor: "#0d1017", viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

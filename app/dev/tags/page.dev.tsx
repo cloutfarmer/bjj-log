@@ -1,17 +1,8 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
-import TagsPreview from "../../../dev/TagsPreview";
+import TagList from "../../components/organisms/TagIndex/TagList";
 
-// Development only. next.config.mjs compiles `page.dev.tsx` only under `next dev`; the
-// guard is a second check. No session check: the page reads no journal data.
-export const metadata: Metadata = { title: "BJJ Log tags preview", robots: { index: false } };
-
-export default function DevTagsPreviewPage() {
+// Development only: see app/dev/layout.dev.tsx.
+export default function Preview() {
   if (process.env.NODE_ENV !== "development") notFound();
-  return (
-    <Suspense fallback={null}>
-      <TagsPreview />
-    </Suspense>
-  );
+  return <TagList />;
 }

@@ -1,6 +1,29 @@
 .calendar {
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.strip { width: 100%; }
+
+/* Calendar screen: the month beside the training totals on wide screens, above them on phones. */
+.screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  width: 100%;
+  animation: rise 400ms var(--ease) both;
+}
+.screen > * { min-width: 0; }
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
 }
 
 .header {
@@ -105,8 +128,8 @@
 
 .legend {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  margin-top: 12px;
   font-size: 0.75rem;
   color: var(--text-muted);
 }
@@ -137,9 +160,11 @@
   background: var(--text-muted);
 }
 
-.weekStrip { gap:8px; margin:12px 0; }
+.weekStrip { gap:8px; margin:12px 0 0; }
 .weekStrip .dayCell { aspect-ratio:auto; min-width:0; height:76px; line-height:1.5; }
-.legend { flex-wrap:wrap; }
+@media(max-width:768px) {
+  .screen { grid-template-columns: 1fr; gap: 16px; }
+}
 @media(max-width:480px) {
   .weekStrip { gap:4px; }
   .weekStrip .dayCell { height:64px; font-size:.78rem; }

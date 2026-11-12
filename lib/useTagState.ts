@@ -116,7 +116,6 @@ export function useTagState() {
       busy,
       onAdd: (name, bucket) => { void addTag(date, name, bucket); },
       onRemove: name => { void removeTag(date, name); },
-      hrefFor: name => `/tags?tag=${encodeURIComponent(name)}`,
     };
   };
 

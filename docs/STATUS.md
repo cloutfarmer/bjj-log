@@ -66,8 +66,27 @@ Each entry gives the date, environment, what ran, and the result.
   `node .agent/repository-scan.mjs` and
   `npx playwright test tests/stats.spec.ts tests/ai-core.spec.ts tests/glossary.spec.ts tests/tag-index.spec.ts`
   (48 tests) passed.
+- 2026-11-12, LOCAL, no database, on `feature/designated-screens` (based on
+  `feature/ai-notes` at `82e16c8`): the Journal / Tags switch, the
+  Tags / Untagged switch and "Expand month" were replaced by four screens with one
+  navigation. `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check`
+  and the four pure specs (48 tests) passed. The build listed `/`, `/calendar`, `/tags`,
+  `/tags/[tag]` and `/untagged`, and no `/dev` route. Against `npm start` with a
+  throwaway password and no database settings, `tests/layout.spec.ts` passed (2 tests),
+  and a signed-out request to each of the five screens redirected to `/login`. On the
+  `/dev` previews at 320, 390, 768 and 1280px: no sideways scroll, the selected day kept
+  across screens, a tag opened from its row and Back returned, a calendar day opened the
+  journal, and leaving an unsaved draft asked first.
 
 ## Unverified
+
+- The four screens have not been seen signed in with real data: the checks above used
+  made-up data or mocked routes. The bottom tab bar's safe-area padding was not checked on
+  a phone. `docs/images/journal.png` shows the earlier layout.
+- `/tags?tag=...` and `/tags?view=untagged` no longer select anything; both open the
+  Tags screen. No redirect was added, because neither address was released.
+- Tag chips in the tag editor are under 24px tall, below the usual touch-target size.
+  They predate the screens.
 
 - Tag quality on real notes is only partly good. With the version 3 prompt every note got
   plausible tags, but three things were seen and not fixed: a note that mentions one

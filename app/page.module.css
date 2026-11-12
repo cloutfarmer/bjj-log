@@ -32,6 +32,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -72,6 +73,12 @@
   align-items: start;
 }
 .content > * { min-width: 0; }
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
 /* Spans the whole row so it sits under both columns at desktop width and in the single phone column. */
 .aiTools {
@@ -197,12 +204,8 @@
 @media (max-width: 768px) {
   .main { padding: 20px 16px 48px; }
   .content { grid-template-columns: 1fr; gap: 16px; }
-  .layout { gap: 16px; }
+  .layout, .column { gap: 16px; }
   .card { padding: 16px; }
   .appHeader { margin-bottom: 20px; }
   .importNotice { flex-direction: column; align-items: stretch; }
-}
-
-@media (max-width: 480px) {
-  .appHeader { flex-wrap: wrap; gap: 12px; }
 }

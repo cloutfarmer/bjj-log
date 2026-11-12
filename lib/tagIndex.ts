@@ -94,3 +94,12 @@ export function suggestTags(
     .filter((name) => !exclude.includes(name))
     .slice(0, limit);
 }
+
+/** The tag name from a `/tags/<name>` path segment, which may arrive still percent-encoded. */
+export function tagFromParam(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}

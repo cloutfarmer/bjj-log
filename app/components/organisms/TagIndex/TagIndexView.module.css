@@ -20,26 +20,6 @@
 }
 .search:focus { border-color: var(--border-strong); }
 
-.switch { display: flex; gap: 8px; }
-.switchButton {
-  flex: 1;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-.switchButton:hover { background: var(--bg-hover); }
-.switchButton[aria-pressed="true"] {
-  background: var(--bg-raised);
-  color: var(--text);
-  border-color: var(--border-strong);
-  box-shadow: var(--highlight), inset 0 -2px 0 var(--accent);
-}
-
 .bucket { display: flex; flex-direction: column; gap: 8px; }
 .bucketHeading {
   font-size: 0.75rem;
@@ -62,8 +42,11 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: background-color 150ms var(--ease);
 }
 .tagRow:hover { background: var(--bg-hover); }
+.tagRow:focus-visible, .backButton:focus-visible, .journalLink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tagName { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
 .tagMeta {
   display: flex;
@@ -79,7 +62,10 @@
 .empty { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.5; }
 
 .backButton {
+  display: inline-flex;
+  align-items: center;
   align-self: flex-start;
+  text-decoration: none;
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border);

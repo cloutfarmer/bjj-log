@@ -21,8 +21,9 @@ uses a fake provider, so it makes no model call and spends no tokens.
 
 ## Preview pages: always safe
 
-**LOCAL.** Run `npm run dev` and open http://localhost:3000/dev for the journal or
-http://localhost:3000/dev/tags for the Tags screen. They render the real components with
+**LOCAL.** Run `npm run dev` and open http://localhost:3000/dev for the journal. The
+navigation there reaches the other previews: `/dev/calendar`, `/dev/tags`,
+`/dev/tags/<name>`, and `/dev/untagged`. They render the real components with
 made-up data from `dev/fixtures.ts`, and need no database, password, or network. Saves and
 tag edits stay in memory. They're not part of production builds; after `npm run build`,
 no `/dev` route may appear in the route list. Use it for layout checks

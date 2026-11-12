@@ -10,11 +10,12 @@ Built with Next.js, React, TypeScript, and Postgres, and deployed on Vercel. I u
 
 ## Features
 
-- Week-view calendar that expands to a full month, with entry dots tinted by gi or no-gi
+- Four screens with one navigation: Journal, Calendar, Tags, and Untagged. A tab bar on phones, header links on wider screens
+- A week strip on the journal and a full month on the Calendar screen, with entry dots tinted by gi or no-gi
 - Notes for each training day, with multi-select session types such as class, drilling, and open mat
 - Long entries that collapse behind a "Show more" toggle
 - Technique tags: up to five per note, added by hand, from one-tap suggestions, or by optional AI tagging. Each tag sits in a broad bucket such as guard or passing
-- A Tags screen that lists every tag with its note count and the last time you trained it, opens every note for a tag, searches note text, and works through untagged old notes
+- A Tags screen that lists every tag with its note count and the last time you trained it, opens every note for a tag, and searches note text. An Untagged screen works through old notes with no tag
 - A note cleaner that suggests spelling fixes for technique names, such as "de la hiva" to "de la riva", with no AI call, plus a grammar check on request. Nothing changes until you accept it
 - Password-protected access with signed, expiring sessions
 - Safe, repeatable import of notes from the app's earlier browser-only version
@@ -70,15 +71,16 @@ Browser tests use Playwright, and one of them writes to the database, so read th
 
 | Path | Contents |
 | --- | --- |
-| `app/components/` | Journal, calendar, entry editor, and Tags screen UI |
+| `app/(app)/` | The signed-in screens and the layout they share |
+| `app/components/` | Journal, calendar, entry editor, tag screens, and navigation UI |
 | `app/api/` | HTTP routes for entries, import, login, logout, and the AI features under `app/api/ai/` |
-| `lib/` | Entry validation, authentication, and the database pool |
+| `lib/` | Entry validation, authentication, the database pool, and the journal state shared by the screens |
 | `lib/ai/` | The AI layer: job runner, job definitions, context builder, provider, and store |
 | `lib/glossary.ts` | Technique-name spelling suggestions, with no AI call |
 | `db/migrations/` | Ordered SQL migrations |
 | `scripts/` | Migration and deployment tools |
 | `tests/` | Playwright browser tests |
-| `dev/` | Development-only previews at `/dev` and `/dev/tags`: the real UI with made-up data |
+| `dev/` | Development-only previews under `/dev`: every screen's real UI with made-up data |
 | `docs/` | [Documentation index](docs/README.md) |
 
 ## Credits

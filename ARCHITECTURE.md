@@ -68,14 +68,28 @@ constraint, so anything that plain code can do makes no model call.
 
 ## Data flow
 
-**Reading.** `app/page.tsx` checks the session and renders `Journal`, or redirects to
-`/login`. `Journal` fetches `GET /api/entries`, which returns every entry as an object
-keyed by date.
+**Screens.** Each screen has its own route, and one navigation links the four main ones:
+a bottom tab bar at 768px and below, header links above that.
 
-**Looking up.** `app/tags/page.tsx` checks the session and renders `TagIndex`, which
-fetches `GET /api/entries` and `GET /api/ai/tags`. The selected tag and tab live in the
-URL (`/tags?tag=...`, `/tags?view=untagged`), so Back works and a tag chip anywhere links
-straight to its notes. "Open in journal" links to `/?date=YYYY-MM-DD`.
+| Route | Screen |
+|---|---|
+| `/` | Journal: the week strip, the selected day's entry, and recent entries |
+| `/calendar` | Calendar: the month grid, training stats, and the attire legend |
+| `/tags` | Tags: search and every tag by bucket |
+| `/tags/<name>` | One tag: every note that carries it |
+| `/untagged` | Untagged: notes with no tag, auto-tagging, tag cleanup, and token usage |
+
+**Reading.** `app/(app)/layout.tsx` checks the session and wraps every screen in one
+`JournalProvider` and one `AppShell`, or redirects to `/login`. Each page checks the
+session again, because a layout doesn't re-run on client navigation. The provider fetches
+`GET /api/entries` (every entry as an object keyed by date) and `GET /api/ai/tags` once.
+It stays mounted while the user moves between screens, so the entries, tags, and selected
+day are kept and nothing is fetched again.
+
+**Looking up.** The selected tag lives in the path, so Back works and a tag chip anywhere
+links straight to its notes. Picking a day on the Calendar screen selects it and opens
+the journal. "Open in journal" links to `/?date=YYYY-MM-DD`; the journal selects that day
+and removes the parameter.
 
 **Saving.** The editor sends `PUT /api/entries` with one date and one entry. The route
 checks the session and origin, validates the body, then upserts the row. If the entry
@@ -116,9 +130,12 @@ AI output and tags live in five separate tables, added by `db/migrations/003_ai.
 
 | Path | Responsibility |
 |---|---|
-| `app/page.tsx`, `app/tags/page.tsx`, `app/login/page.tsx` | Server pages: session check, then the journal, the Tags screen, or the sign-in form |
-| `app/components/Journal.tsx` | Client state: entries, selected date, saving, and import |
-| `app/components/Calendar.tsx` | Week view that expands to a full month, plus the attire legend |
+| `app/(app)/layout.tsx`, `app/(app)/**/page.tsx`, `app/login/page.tsx` | Server layout and pages: session check, then the shared shell, one screen, or the sign-in form |
+| `lib/useJournal.tsx` | `JournalProvider` and the `useJournal()` hook: entries, selected date, saving, import, the unsaved-draft check, and tag state, shared by every screen. Also the screen links |
+| `app/components/Journal.tsx` | The Journal screen |
+| `app/components/organisms/Calendar/` | `WeekStrip` for the journal, `MonthGrid` and `CalendarScreen` for the Calendar screen, and the attire legend |
+| `app/components/organisms/AppShell/`, `organisms/AppNav/` | The frame around every screen: skip link, brand, sign out, loading and error messages, and the four-link navigation with a check for an unsaved draft |
+| `app/components/organisms/RecentEntries/` | The recent-entries list on the Journal screen |
 | `app/components/JournalEntry.tsx` | Read and edit views for the selected day |
 | `app/components/{atoms,molecules,organisms}/` | New presentational components, one folder each, grouped by atomic-design level (for example `organisms/TrainingStats`) |
 | `lib/stats.ts` | Pure training-stat calculations: week, month, week streak, total, gi/no-gi split |
@@ -130,17 +147,16 @@ AI output and tags live in five separate tables, added by `db/migrations/003_ai.
 | `lib/ai/` | The AI layer: `run.ts`, `jobs/`, `context.ts`, `hash.ts`, `tagMatch.ts`, and `buckets.ts` are pure and take the store and provider as arguments. `config.ts`, `provider.ts`, and `store.ts` are server only |
 | `lib/glossary.ts`, `lib/nextItems.ts` | Pure: technique-name spelling suggestions, and next-time items parsed from note text |
 | `lib/aiClient.ts` | Browser helpers for `/api/ai/*`. They return null on any failure and never throw |
-| `lib/useTagState.ts` | Client hook shared by the journal and the Tags screen: tag state, auto-tag, add and remove, and the props for `TagEditor` |
+| `lib/useTagState.ts` | Client hook used once, by `JournalProvider`: tag state, auto-tag, add and remove, and the props for `TagEditor` |
 | `lib/tagIndex.ts` | Pure: the tag index, note text search, and tag suggestions from note text |
-| `app/components/organisms/TagIndex/` | The Tags screen. `TagIndex` loads data; `TagIndexView` renders it and is reused by the preview |
-| `app/components/organisms/AppHeader/` | Brand, Journal / Tags navigation, and sign out, with a check for an unsaved draft |
+| `app/components/organisms/TagIndex/` | `TagList`, `TagDetail`, and `UntaggedList`: the Tags, tag, and Untagged screens. `NoteList` and `NoteCard` show notes with their tag editors |
 | `app/api/ai/` | HTTP routes for tags, tagging, the grammar check, tag cleanup and merge, and token usage |
 | `db/migrations/` | Ordered SQL files |
 | `scripts/` | Migrations, deployment, and production-secret tools |
 | `tests/` | Playwright browser tests |
-| `dev/`, `app/dev/**/page.dev.tsx` | Development-only previews at `/dev` and `/dev/tags`: the real journal and Tags screen components with made-up fixtures |
+| `dev/`, `app/dev/**/*.dev.tsx` | Development-only previews under `/dev`: every screen's real components inside `PreviewProvider`, which fills the same context with made-up fixtures |
 
-Entry state lives in `Journal` and passes down as props; tag state lives in `useTagState`. Interactive components are client
+Entry and tag state live in `JournalProvider`, and screens read them with `useJournal()`. Interactive components are client
 components. Styling uses CSS Modules with dark-theme variables from `app/globals.css`
 and the system font stack, with no UI library or external font. In the calendar, today
 has a green highlight and the selected day a blue one. Entry dots are tinted by attire
@@ -149,8 +165,8 @@ and stay blue when none is recorded.
 ## Boundaries
 
 - Browser code reaches data only through `/api/*`. It never sees database credentials.
-- `lib/entries.ts` is safe on both sides, and `Journal` uses it to read old browser
-  notes. `lib/auth.ts` and `lib/db.ts` import `server-only`.
+- `lib/entries.ts` is safe on both sides, and `JournalProvider` uses it to read old
+  browser notes. `lib/auth.ts` and `lib/db.ts` import `server-only`.
 - `DATABASE_URL` (pooled) serves the app. `DATABASE_URL_UNPOOLED` (direct) is used only
   by `scripts/migrate.mjs`.
 - Local development and production use separate Neon branches.
@@ -160,8 +176,11 @@ and stay blue when none is recorded.
 - If the key or the AI tables are missing, `/api/ai/*` answers 503 and the journal works
   as it did before, with no tag UI.
 - The `/dev` previews exist only under `next dev`. `next.config.mjs` adds the
-  `page.dev.tsx` extension only in development, so production builds never compile the
-  pages or their fixtures. They read no session, database, or network.
+  `dev.tsx` extension only in development, so production builds never compile the
+  preview layout, pages, or fixtures. They read no session, database, or network.
+  `tsconfig.json` leaves out `.next-dev/types/validator.ts`, the development server's
+  generated route check, because it names the preview layout that a production build
+  doesn't have.
 
 ## Invariants
 

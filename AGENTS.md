@@ -80,7 +80,7 @@ are kept outside this repository: ask the user before any production work.
 - Import never overwrites an entry already in the cloud, and leaves the browser's
   copy untouched.
 - An entry with no text, no session types, and no attire is deleted. The client in
-  `app/components/Journal.tsx` and the API routes must apply the same rule.
+  `lib/useJournal.tsx` and the API routes must apply the same rule.
 - A failed save keeps the draft open in the editor.
 - Dates are stored as `YYYY-MM-DD`, one entry per day.
 - Journal text and credentials never appear in logs, error messages, or test traces.
