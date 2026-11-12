@@ -74,3 +74,9 @@ test("suggestTags matches the text, skips excluded names and caps the list", () 
   expect(suggestTags("Armbar, mount, back take.", names, [], 2)).toEqual(["back take", "armbar"]);
   expect(suggestTags("nothing", names, [])).toEqual([]);
 });
+
+test("suggestTags accepts word forms and skips passing mentions", () => {
+  const names = ["arm drag", "leg drag"];
+  expect(suggestTags("Drilled leg drags today.", names, [])).toEqual(["leg drag"]);
+  expect(suggestTags("Drilled leg drags, finish it like an arm drag.", names, [])).toEqual(["leg drag"]);
+});

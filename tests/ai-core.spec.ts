@@ -4,7 +4,7 @@ import type { NoteForContext } from "../lib/ai/context";
 import { JOBS } from "../lib/ai/jobs";
 import { extractJson } from "../lib/ai/jobs/json";
 import { runJob } from "../lib/ai/run";
-import { matchTag, matchTags } from "../lib/ai/tagMatch";
+import { countMentions, matchTag, matchTags, needsModel } from "../lib/ai/tagMatch";
 import type { JobName, Provider, ProviderResponse, RunRecord, SavedOutput, Store } from "../lib/ai/types";
 import { parseNextItems, stripNextItems } from "../lib/nextItems";
 
@@ -221,7 +221,7 @@ test("tagCleanup drops unknown names and self-merges", () => {
 });
 
 test("matchTag respects word boundaries, length and normalize", () => {
-  expect(matchTag("Armbars today", ["armbar"])).toBeNull();
+  expect(matchTag("Armbars today", ["armbar"])).toBe("armbar");
   expect(matchTag("Hit an armbar.", ["armbar"])).toBe("armbar");
   expect(matchTag("Worked K Guard, then more.", ["k guard"])).toBe("k guard");
   expect(matchTag("k guard to guard", ["guard", "k guard"])).toBe("k guard");
@@ -287,4 +287,40 @@ test("counts, formatting and open items", () => {
   );
   expect(openNextItems(set)).toEqual(["2026-11-10: try the backside entry"]);
   expect(compactNotes(set).split("\n")[0].startsWith("2026-11-08")).toBe(true);
+});
+
+test("matchTags accepts word forms but not other longer words", () => {
+  for (const text of ["Hit leg drags.", "Hit leg dragged him", "leg dragging works"]) {
+    expect(matchTags(text, ["leg drag"])).toEqual(["leg drag"]);
+  }
+  expect(matchTag("Climbed the mountain", ["mount"])).toBeNull();
+  expect(matchTag("An armbarish thing", ["armbar"])).toBeNull();
+});
+
+test("matchTags ignores passing mentions", () => {
+  const text = "Drilled leg drags, could also finish it like an arm drag.";
+  expect(matchTags(text, ["arm drag", "leg drag"])).toEqual(["leg drag"]);
+  expect(matchTags(text, ["arm drag"])).toEqual([]);
+  expect(matchTags("Hit an arm drag, then another like an arm drag.", ["arm drag"])).toEqual(["arm drag"]);
+  expect(matchTags("I dislike a triangle", ["triangle"])).toEqual(["triangle"]);
+  expect(matchTags("Used a kimura instead of the triangle", ["triangle"])).toEqual([]);
+});
+
+test("countMentions counts real mentions only", () => {
+  const text = "Leg drags and a leg drag, plus mount, like a mount, like an arm drag.";
+  expect(countMentions(text, ["leg drag", "mount", "arm drag", "guard"])).toEqual({ "leg drag": 2, mount: 1 });
+});
+
+test("needsModel asks the model when known tags miss the main technique", () => {
+  const text = "Drilled leg drags, could also finish it like an arm drag.";
+  const glossary = ["leg drag", "arm drag", "side control"];
+  expect(needsModel(text, ["arm drag", "side control"], glossary)).toBe(true);
+  expect(needsModel("nothing relevant", ["arm drag"], glossary)).toBe(true);
+  expect(needsModel(text, ["leg drag"], glossary)).toBe(false);
+  expect(
+    needsModel("Leg drag, leg drag, then side control.", ["leg drag"], ["leg drag", "side control"]),
+  ).toBe(false);
+  expect(
+    needsModel("Leg drag, leg drag, then side control, then side control, side control.", ["leg drag"], ["leg drag", "side control"]),
+  ).toBe(true);
 });
