@@ -19,11 +19,15 @@ const MAX_JOB_TAGS = 3;
 
 export const tagNote: Job<TagNoteArgs, TagNoteOut> = {
   name: "tagNote",
-  version: 2,
+  version: 3,
   system:
-    "Pick up to 3 tags that name the note's main techniques or positions; reuse an existing tag whenever one fits and create a new short lowercase one only when none does. " +
+    "Tag this jiu-jitsu training note with up to 3 tags naming the main techniques or positions it is about. " +
+    "Use an existing tag only when the note is clearly about that exact technique; never add one just because it is in the list or a word is mentioned in passing. " +
+    "Otherwise create a new short lowercase tag of 1 to 3 words using the technique's usual name. " +
+    "For a new tag give its bucket: guard (guards and sweeps), passing (guard passes), leg locks, takedowns (takedowns and standing ties), submissions (chokes and arm locks), escapes (escapes and defenses), pins (mount, side control, knee on belly, north south, back control), other only when none fits. " +
     'Reply with JSON only: {"tags":[{"tag":"..."},{"tag":"...","bucket":"..."}]}, giving a bucket only for a new tag. Reply {"tags":[]} if the note names no technique.',
-  maxOutputTokens: 80,
+  // A cap, not a spend: a three-tag reply needs up to about 80 tokens, so 200 leaves room.
+  maxOutputTokens: 200,
   buildInput({ text, tags }) {
     const note = text.replace(/\s+/g, " ").trim().slice(0, 1500);
     return [

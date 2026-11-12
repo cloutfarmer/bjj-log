@@ -121,6 +121,16 @@ test("tagNote keeps at most 3 tags", () => {
   expect(out?.tags.map((t) => t.tag)).toEqual(["a1", "b2", "c3"]);
 });
 
+test("tagNote returns null for a reply cut off mid-JSON", () => {
+  const cut = '{"tags":[{"tag":"knee cut","bucket":"passing"},{"tag":"half gu';
+  expect(JOBS.tagNote.parseOutput(cut, { text: "x", tags: [] })).toBeNull();
+});
+
+test("tagNote leaves room for a full reply", () => {
+  // A cap of 80 truncated real replies.
+  expect(JOBS.tagNote.maxOutputTokens).toBeGreaterThanOrEqual(150);
+});
+
 test("cleanNote drops unknown edits and caps at 10", () => {
   const text = "teh guard and recieve";
   const edits = [{ from: "teh", to: "the" }, { from: "missing", to: "found" }, { from: "same", to: "same" }];
