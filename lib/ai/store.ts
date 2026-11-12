@@ -1,11 +1,13 @@
 import "server-only";
 
 import { database } from "../db";
+import { INVALID_KEY } from "./run";
 
 import type { PoolClient } from "pg";
 import type { Store } from "./types";
 
 export type TagSource = "code" | "ai" | "user";
+export type EntryTagRow = { name: string; source: TagSource };
 
 // Same value as hashText() in lib/ai/hash.ts, computed in SQL.
 const SQL_HASH = "encode(sha256(convert_to(e.text, 'UTF8')), 'hex')";
@@ -48,20 +50,15 @@ export const pgStore: Store = {
   },
 };
 
-export async function getEntryText(date: string): Promise<string | null> {
-  const { rows } = await database().query<{ text: string }>("SELECT text FROM bjj_entries WHERE entry_date = $1", [date]);
-  return rows[0]?.text ?? null;
-}
-
 export async function getEntryTags(
   date: string,
-): Promise<{ tags: { name: string; source: TagSource }[]; byUser: boolean; textHash: string } | null> {
+): Promise<{ tags: EntryTagRow[]; byUser: boolean; textHash: string } | null> {
   const state = await database().query<{ byUser: boolean; textHash: string }>(
     'SELECT by_user AS "byUser", text_hash AS "textHash" FROM bjj_entry_tag_state WHERE entry_date = $1',
     [date],
   );
   if (!state.rows[0]) return null;
-  const { rows } = await database().query<{ name: string; source: TagSource }>(
+  const { rows } = await database().query<EntryTagRow>(
     "SELECT tag AS name, source FROM bjj_entry_tags WHERE entry_date = $1 ORDER BY created_at, tag",
     [date],
   );
@@ -69,45 +66,81 @@ export async function getEntryTags(
 }
 
 export async function listTags(): Promise<Record<string, string>> {
-  const { rows } = await database().query<{ name: string; bucket: string }>("SELECT name, bucket FROM bjj_tags");
+  const { rows } = await database().query<{ name: string; bucket: string }>("SELECT name, bucket FROM bjj_tags ORDER BY name");
   return Object.fromEntries(rows.map((r) => [r.name, r.bucket]));
-}
-
-export async function listEntryTags(): Promise<
-  Record<string, { tags: { name: string; source: TagSource }[]; byUser: boolean }>
-> {
-  const states = await database().query<{ date: string; byUser: boolean }>(
-    'SELECT entry_date::text AS date, by_user AS "byUser" FROM bjj_entry_tag_state',
-  );
-  const tagRows = await database().query<{ date: string; name: string; source: TagSource }>(
-    "SELECT entry_date::text AS date, tag AS name, source FROM bjj_entry_tags ORDER BY created_at, tag",
-  );
-  const out: Record<string, { tags: { name: string; source: TagSource }[]; byUser: boolean }> = {};
-  for (const s of states.rows) out[s.date] = { tags: [], byUser: s.byUser };
-  for (const t of tagRows.rows) out[t.date]?.tags.push({ name: t.name, source: t.source });
-  return out;
 }
 
 const PENDING_WHERE = `btrim(e.text) <> '' AND (s.entry_date IS NULL OR (s.by_user = false AND s.text_hash <> ${SQL_HASH}))`;
 
-export async function listPendingDates(limit: number): Promise<string[]> {
-  const { rows } = await database().query<{ date: string }>(
-    `SELECT e.entry_date::text AS date FROM bjj_entries e
-     LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
-     WHERE ${PENDING_WHERE}
-     ORDER BY e.entry_date DESC LIMIT $1`,
-    [limit],
-  );
-  return rows.map((r) => r.date);
+const TAGS_OF = (owner: string) =>
+  `COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.tag, 'source', t.source) ORDER BY t.created_at, t.tag)
+             FROM bjj_entry_tags t WHERE t.entry_date = ${owner}.entry_date), '[]'::jsonb)`;
+const KNOWN_TAGS = "(SELECT COALESCE(jsonb_object_agg(name, bucket), '{}'::jsonb) FROM bjj_tags)";
+
+export interface TagStateRow {
+  entryTags: Record<string, { tags: EntryTagRow[]; byUser: boolean }>;
+  tags: Record<string, string>;
+  /** The newest notes that still need tagging, newest first. */
+  pending: string[];
+  pendingCount: number;
+  cleanupDue: boolean;
 }
 
-export async function countPending(): Promise<number> {
-  const { rows } = await database().query<{ count: number }>(
-    `SELECT count(*)::int AS count FROM bjj_entries e
-     LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
-     WHERE ${PENDING_WHERE}`,
+/**
+ * Everything the tag UI needs, in one statement on one connection. The pending set is
+ * computed once and gives both the count and the newest dates, so each note's text is
+ * hashed once per load.
+ */
+export async function getTagState(pendingLimit: number): Promise<TagStateRow> {
+  const { rows } = await database().query<TagStateRow>(
+    `WITH pending AS (
+       SELECT e.entry_date FROM bjj_entries e
+       LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
+       WHERE ${PENDING_WHERE}
+     )
+     SELECT
+       ${KNOWN_TAGS} AS tags,
+       (SELECT COALESCE(jsonb_object_agg(s.entry_date::text, jsonb_build_object('byUser', s.by_user, 'tags', ${TAGS_OF("s")})), '{}'::jsonb)
+        FROM bjj_entry_tag_state s) AS "entryTags",
+       (SELECT COALESCE(array_agg(p.date ORDER BY p.date DESC), '{}'::text[])
+        FROM (SELECT entry_date::text AS date FROM pending ORDER BY entry_date DESC LIMIT $1) p) AS pending,
+       (SELECT count(*)::int FROM pending) AS "pendingCount",
+       -- With no saved cleanup yet, every tag counts as new. A cleanup whose reply was
+       -- unusable is not a cleanup, so its marker row is ignored.
+       (SELECT count(*) >= 10 FROM bjj_tags t
+        WHERE t.created_at > COALESCE(
+          (SELECT updated_at FROM bjj_ai_outputs WHERE job = 'tagCleanup' AND scope = 'all' AND output -> $2 IS NULL),
+          '-infinity'::timestamptz)) AS "cleanupDue"`,
+    [pendingLimit, INVALID_KEY],
   );
-  return rows[0]?.count ?? 0;
+  return rows[0];
+}
+
+export interface TagContext {
+  text: string;
+  /** null when tagging has never looked at this note. */
+  state: { tags: EntryTagRow[]; byUser: boolean; textHash: string } | null;
+  known: Record<string, string>;
+}
+
+/** What a tag request needs to decide anything, in one query. null when the day has no entry. */
+export async function loadTagContext(date: string): Promise<TagContext | null> {
+  const { rows } = await database().query<{
+    text: string;
+    byUser: boolean | null;
+    textHash: string | null;
+    tags: EntryTagRow[];
+    known: Record<string, string>;
+  }>(
+    `SELECT e.text, s.by_user AS "byUser", s.text_hash AS "textHash", ${TAGS_OF("e")} AS tags, ${KNOWN_TAGS} AS known
+     FROM bjj_entries e LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
+     WHERE e.entry_date = $1`,
+    [date],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const state = row.byUser === null || row.textHash === null ? null : { tags: row.tags, byUser: row.byUser, textHash: row.textHash };
+  return { text: row.text, state, known: row.known };
 }
 
 export interface NewTag {
@@ -116,14 +149,19 @@ export interface NewTag {
   newBucket: string | null;
 }
 
-const NEW_TAG = "INSERT INTO bjj_tags (name, bucket) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING";
-const ADD_ENTRY_TAG =
-  "INSERT INTO bjj_entry_tags (entry_date, tag, source) VALUES ($1, $2, $3) ON CONFLICT (entry_date, tag) DO NOTHING";
+// One statement for any number of tags: the names arrive as arrays, not one query each.
+const NEW_TAGS =
+  "INSERT INTO bjj_tags (name, bucket) SELECT * FROM unnest($1::text[], $2::text[]) ON CONFLICT (name) DO NOTHING";
+const ADD_ENTRY_TAGS =
+  "INSERT INTO bjj_entry_tags (entry_date, tag, source) SELECT $1::date, name, $3 FROM unnest($2::text[]) AS name ON CONFLICT (entry_date, tag) DO NOTHING";
 
 async function ensureTags(client: PoolClient, tags: NewTag[]): Promise<void> {
-  for (const tag of tags) {
-    if (tag.newBucket !== null) await client.query(NEW_TAG, [tag.name, tag.newBucket]);
-  }
+  const created = tags.filter((tag) => tag.newBucket !== null);
+  if (created.length) await client.query(NEW_TAGS, [created.map((tag) => tag.name), created.map((tag) => tag.newBucket)]);
+}
+
+async function addEntryTags(client: PoolClient, date: string, names: string[], source: TagSource): Promise<void> {
+  if (names.length) await client.query(ADD_ENTRY_TAGS, [date, names, source]);
 }
 
 export function saveJobTags(date: string, tags: NewTag[], source: "code" | "ai", textHash: string): Promise<boolean> {
@@ -138,13 +176,14 @@ export function saveJobTags(date: string, tags: NewTag[], source: "code" | "ai",
     if ((state.rowCount ?? 0) === 0) return false;
     await client.query("DELETE FROM bjj_entry_tags WHERE entry_date = $1", [date]);
     await ensureTags(client, tags);
-    for (const tag of tags) await client.query(ADD_ENTRY_TAG, [date, tag.name, source]);
+    await addEntryTags(client, date, tags.map((tag) => tag.name), source);
     return true;
   });
 }
 
-export async function saveUserTags(date: string, tags: NewTag[], textHash: string): Promise<void> {
-  await inTransaction(async (client) => {
+/** Returns the note's tags as saved, so the caller needs no second read. */
+export function saveUserTags(date: string, tags: NewTag[], textHash: string): Promise<EntryTagRow[]> {
+  return inTransaction(async (client) => {
     await client.query(
       `INSERT INTO bjj_entry_tag_state (entry_date, text_hash, by_user) VALUES ($1, $2, true)
        ON CONFLICT (entry_date) DO UPDATE SET text_hash = EXCLUDED.text_hash, by_user = true, updated_at = now()`,
@@ -154,7 +193,12 @@ export async function saveUserTags(date: string, tags: NewTag[], textHash: strin
     const names = tags.map((t) => t.name);
     await client.query("DELETE FROM bjj_entry_tags WHERE entry_date = $1 AND NOT (tag = ANY($2::text[]))", [date, names]);
     // Rows that stay keep their original source.
-    for (const name of names) await client.query(ADD_ENTRY_TAG, [date, name, "user"]);
+    await addEntryTags(client, date, names, "user");
+    const { rows } = await client.query<EntryTagRow>(
+      "SELECT tag AS name, source FROM bjj_entry_tags WHERE entry_date = $1 ORDER BY created_at, tag",
+      [date],
+    );
+    return rows;
   });
 }
 
@@ -179,15 +223,6 @@ export function mergeTags(from: string, into: string): Promise<number | null> {
     await client.query("DELETE FROM bjj_tags WHERE name = $1", [from]);
     return (dropped.rowCount ?? 0) + (moved.rowCount ?? 0);
   });
-}
-
-export async function cleanupDue(): Promise<boolean> {
-  // With no saved cleanup yet, every tag counts as new.
-  const { rows } = await database().query<{ due: boolean }>(
-    `SELECT count(*) >= 10 AS due FROM bjj_tags t
-     WHERE t.created_at > COALESCE((SELECT updated_at FROM bjj_ai_outputs WHERE job = 'tagCleanup' AND scope = 'all'), '-infinity'::timestamptz)`,
-  );
-  return rows[0]?.due ?? false;
 }
 
 export async function usageByJob(): Promise<{ job: string; runs: number; inputTokens: number; outputTokens: number }[]> {

@@ -14,6 +14,7 @@ import type { Attire, JournalEntryData } from "../types";
 
 const STORAGE_KEY = "bjj-log-entries";
 const EMPTY_ENTRY: JournalEntryData = { text: "", sessionTypes: [], attire: null };
+const CATCH_UP_LIMIT = 5;
 
 export default function Home() {
   const now = new Date();
@@ -44,8 +45,13 @@ export default function Home() {
     catchUpStartedRef.current = true;
     const state = await reload();
     if (!state) return;
-    for (const date of state.pending.slice(0, 5)) {
-      if (!(await autoTag(date))) return;
+    // One note that can't be tagged must not block the ones behind it, but two failures
+    // in a row mean tagging is down, so stop until the next load.
+    let tagged = 0;
+    let failures = 0;
+    for (const date of state.pending) {
+      if (tagged >= CATCH_UP_LIMIT || failures >= 2) return;
+      if (await autoTag(date)) { tagged++; failures = 0; } else failures++;
     }
   }
 
@@ -99,6 +105,7 @@ export default function Home() {
   async function handleSave(dateStr: string, entry: JournalEntryData) {
     setBusy(true);
     setNotice("");
+    const previousText = entries[dateStr]?.text;
     try {
       const response = await fetch("/api/entries", {
         method: "PUT", headers: { "Content-Type": "application/json" },
@@ -115,7 +122,8 @@ export default function Home() {
       setNotice("Saved to your journal.");
       // Tagging is best effort and never delays or fails the save.
       if (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire) forget(dateStr);
-      if (entry.text.trim() && tagState) void autoTag(dateStr);
+      // Tags come from the text, so a save that leaves it unchanged asks for nothing.
+      if (entry.text.trim() && tagState && entry.text !== previousText) void autoTag(dateStr);
     } finally { setBusy(false); }
   }
 
