@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { isDate, parseEntry } from "../../lib/entries";
+import { BUCKETS } from "../../lib/ai/buckets";
+import { fetchTagState, requestTag, saveUserTag } from "../../lib/aiClient";
 import Calendar from "./Calendar";
 import JournalEntry from "./JournalEntry";
 import LogoMark from "./atoms/LogoMark/LogoMark";
 import TrainingStats from "./organisms/TrainingStats/TrainingStats";
 import styles from "../page.module.css";
 
+import type { TagResult, TagState } from "../../lib/aiClient";
 import type { Attire, JournalEntryData } from "../types";
 
 const STORAGE_KEY = "bjj-log-entries";
@@ -31,6 +34,46 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [localNotes, setLocalNotes] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // null hides all tag UI: the AI routes are missing, failed, or not loaded yet.
+  const [tagState, setTagState] = useState<TagState | null>(null);
+  const [tagBusy, setTagBusy] = useState(false);
+  const aliveRef = useRef(false);
+  // React strict mode runs mount effects twice in dev; the catch-up must run once.
+  const catchUpStartedRef = useRef(false);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  /** Merges one tagging result; a new tag name also joins the suggestion list. */
+  function mergeTag(date: string, result: TagResult) {
+    if (!aliveRef.current) return;
+    setTagState(previous => {
+      if (!previous) return previous;
+      const tags = result.tag && result.bucket && !Object.hasOwn(previous.tags, result.tag)
+        ? { ...previous.tags, [result.tag]: result.bucket } : previous.tags;
+      return {
+        ...previous, tags,
+        entryTags: { ...previous.entryTags, [date]: { tag: result.tag, source: result.source } },
+        pending: previous.pending.filter(item => item !== date),
+      };
+    });
+  }
+
+  /** Tags notes saved while AI was unavailable, newest first and one at a time to keep provider load low. */
+  async function catchUpTags() {
+    if (catchUpStartedRef.current) return;
+    catchUpStartedRef.current = true;
+    const state = await fetchTagState();
+    if (!state || !aliveRef.current) return;
+    setTagState(state);
+    for (const date of state.pending.slice(0, 5)) {
+      const result = await requestTag(date);
+      if (!result || !aliveRef.current) return;
+      mergeTag(date, result);
+    }
+  }
 
   async function refresh() {
     const response = await fetch("/api/entries", { cache: "no-store" });
@@ -43,11 +86,13 @@ export default function Home() {
   useEffect(() => {
     const date = new Date();
     setSelectedDate(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`);
-    refresh().catch((cause: Error) => setError(cause.message));
+    refresh().then(() => { void catchUpTags(); }).catch((cause: Error) => setError(cause.message));
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw && raw !== "{}") setLocalNotes(raw);
     } catch { /* Cloud notes still work if browser storage is unavailable. */ }
+    // Runs once on mount; catchUpTags is guarded by a ref and only uses stable setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePrevMonth = useCallback(() => {
@@ -87,8 +132,30 @@ export default function Home() {
         return updated;
       });
       setNotice("Saved to your journal.");
+      // Tagging is best effort and never delays or fails the save.
+      if (entry.text.trim()) {
+        if (tagState) void requestTag(dateStr).then(result => { if (result) mergeTag(dateStr, result); });
+      } else {
+        setTagState(previous => {
+          if (!previous || !Object.hasOwn(previous.entryTags, dateStr)) return previous;
+          const entryTags = { ...previous.entryTags };
+          delete entryTags[dateStr];
+          return { ...previous, entryTags };
+        });
+      }
     } finally { setBusy(false); }
   }
+
+  async function updateTag(date: string, tag: string | null, bucket?: string) {
+    setTagBusy(true);
+    try {
+      const result = await saveUserTag(date, tag, bucket);
+      if (result) mergeTag(date, result);
+      else setError("Could not save the tag. Please retry.");
+    } finally { if (aliveRef.current) setTagBusy(false); }
+  }
+  const changeTag = (date: string, tag: string, bucket: string) => updateTag(date, tag, bucket);
+  const removeTag = (date: string) => updateTag(date, null);
 
   async function importNotes() {
     if (!localNotes) return;
@@ -130,6 +197,19 @@ export default function Home() {
       .map(([date, entry]) => [date, entry.attire]),
   );
 
+  const selectedEntry = selectedDate ? entries[selectedDate] : undefined;
+  const selectedTag = selectedDate && tagState ? tagState.entryTags[selectedDate]?.tag ?? null : null;
+  const tagging = tagState && selectedDate && selectedEntry?.text.trim() && !dirty ? {
+    tag: selectedTag,
+    bucket: selectedTag ? tagState.tags[selectedTag] ?? null : null,
+    source: tagState.entryTags[selectedDate]?.source,
+    tags: tagState.tags,
+    buckets: BUCKETS,
+    busy: tagBusy,
+    onChange: (tag: string, bucket: string) => { void changeTag(selectedDate, tag, bucket); },
+    onRemove: () => { void removeTag(selectedDate); },
+  } : undefined;
+
   return (
     <main className={styles.main}>
       <header className={styles.appHeader}><div className={styles.brand}><LogoMark className={styles.logo} /><h1 className={styles.title}>BJJ Log</h1></div>
@@ -160,7 +240,8 @@ export default function Home() {
           savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
           onSave={handleSave}
           onDirtyChange={setDirty}
-        /></div><aside className={`${styles.recent} ${styles.card}`}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
+          tagging={tagging}
+        /></div><aside className={`${styles.recent} ${styles.card}`}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes, tagState?.entryTags[date]?.tag ?? ""].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
       </div>}
     </main>
   );

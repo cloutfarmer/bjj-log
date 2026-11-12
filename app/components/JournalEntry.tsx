@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import TagEditor from "./molecules/TagEditor/TagEditor";
 import styles from "./JournalEntry.module.css";
 
 import { ATTIRE_OPTIONS } from "../types";
@@ -11,6 +12,17 @@ interface JournalEntryProps {
   savedEntry: JournalEntryData;
   onDirtyChange: (dirty: boolean) => void;
   onSave: (date: string, entry: JournalEntryData) => Promise<void>;
+  /** Present only when tagging is available for this saved note; absent renders nothing new. */
+  tagging?: {
+    tag: string | null;
+    bucket: string | null;
+    source?: "code" | "ai" | "user";
+    tags: Readonly<Record<string, string>>;
+    buckets: readonly string[];
+    busy: boolean;
+    onChange: (tag: string, bucket: string) => void;
+    onRemove: () => void;
+  };
 }
 
 const MONTH_NAMES = [
@@ -36,7 +48,7 @@ function formatDateHeading(dateStr: string) {
 
 const PREVIEW_LINES = 6;
 
-export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirtyChange }: JournalEntryProps) {
+export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirtyChange, tagging }: JournalEntryProps) {
   const [text, setText] = useState(savedEntry.text);
   const [sessionTypes, setSessionTypes] = useState(savedEntry.sessionTypes);
   const [attire, setAttire] = useState<Attire | null>(savedEntry.attire);
@@ -195,6 +207,12 @@ export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirty
                       </span>
                     );
                   })}
+                </div>
+              )}
+              {tagging && savedText.length > 0 && (
+                <div className={styles.tagSection}>
+                  <span className={styles.sessionLabel}>Tag</span>
+                  <TagEditor {...tagging} />
                 </div>
               )}
               {savedText.length > 0 && (
