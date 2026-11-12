@@ -13,6 +13,9 @@ Built with Next.js, React, TypeScript, and Postgres, and deployed on Vercel. I u
 - Week-view calendar that expands to a full month, with entry dots tinted by gi or no-gi
 - Notes for each training day, with multi-select session types such as class, drilling, and open mat
 - Long entries that collapse behind a "Show more" toggle
+- Technique tags: up to five per note, added by hand, from one-tap suggestions, or by optional AI tagging. Each tag sits in a broad bucket such as guard or passing
+- A Tags screen that lists every tag with its note count and the last time you trained it, opens every note for a tag, searches note text, and works through untagged old notes
+- A note cleaner that suggests spelling fixes for technique names, such as "de la hiva" to "de la riva", with no AI call, plus a grammar check on request. Nothing changes until you accept it
 - Password-protected access with signed, expiring sessions
 - Safe, repeatable import of notes from the app's earlier browser-only version
 
@@ -25,6 +28,7 @@ Built with Next.js, React, TypeScript, and Postgres, and deployed on Vercel. I u
 - **Non-destructive import.** One atomic SQL statement adds only dates that are missing, so a retry is safe and existing entries are never overwritten.
 - **Deliberate releases.** Only the `prod` branch can deploy, enforced by both [`vercel.json`](vercel.json) and a build-time check.
 - **No lost drafts.** A failed save keeps the editor open with your text intact.
+- **Frugal AI.** Every model call goes through one layer with a hard output cap per job. Outputs are saved with a hash of their input, so unchanged input costs nothing, and a text match against existing tags is tried before any call. Token counts are recorded per job.
 
 The [architecture guide](ARCHITECTURE.md) covers the data flow, module boundaries, and the reason behind each invariant.
 
@@ -66,13 +70,15 @@ Browser tests use Playwright, and one of them writes to the database, so read th
 
 | Path | Contents |
 | --- | --- |
-| `app/components/` | Journal, calendar, and entry editor UI |
-| `app/api/` | HTTP routes for entries, import, login, and logout |
+| `app/components/` | Journal, calendar, entry editor, and Tags screen UI |
+| `app/api/` | HTTP routes for entries, import, login, logout, and the AI features under `app/api/ai/` |
 | `lib/` | Entry validation, authentication, and the database pool |
+| `lib/ai/` | The AI layer: job runner, job definitions, context builder, provider, and store |
+| `lib/glossary.ts` | Technique-name spelling suggestions, with no AI call |
 | `db/migrations/` | Ordered SQL migrations |
 | `scripts/` | Migration and deployment tools |
 | `tests/` | Playwright browser tests |
-| `dev/` | Development-only preview at `/dev`: the real UI with made-up data |
+| `dev/` | Development-only previews at `/dev` and `/dev/tags`: the real UI with made-up data |
 | `docs/` | [Documentation index](docs/README.md) |
 
 ## Credits

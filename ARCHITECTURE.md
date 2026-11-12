@@ -15,18 +15,67 @@ Browser (React client components)
 Next.js App Router on Vercel (Node.js functions, iad1)
    |  pooled Postgres connection, server only
    v
-Neon Postgres: table bjj_entries
+Neon Postgres: bjj_entries, plus the AI tables
+
+Next.js server only, and only from lib/ai/provider.ts
+   |  HTTPS, API key from the server environment
+   v
+Anthropic Messages API (optional: without a key the journal works untagged)
 ```
 
 The website and API deploy together as one Next.js app. There is no separate backend
 or background worker. The app needs an internet connection: there is no offline mode,
 and a draft is lost if the page closes before a successful save.
 
+## AI layer
+
+AI organises notes and suggests fixes. It never writes note text. Token use is the main
+constraint, so anything that plain code can do makes no model call.
+
+- **One path to a model.** `runJob` in `lib/ai/run.ts` is the only caller of a provider.
+  Each job in `lib/ai/jobs/` has a fixed input builder, an output validator, a short
+  system prompt, and a hard output-token cap. The jobs are `tagNote`, `cleanNote`,
+  `tagCleanup`, and three registered but not yet called: `dailyBrief`, `weeklySummary`,
+  `monthlyRecap`.
+- **Saved outputs.** Each output is stored with a hash of the job name, prompt version,
+  and input. A matching hash returns the saved output with no call.
+- **One context builder.** `lib/ai/context.ts` turns notes into one compact line each and
+  does all counting. `lib/nextItems.ts` reads next-time items from lines that start with
+  `next:`; `[x]` or a trailing `(done)` marks one done.
+- **Tagging.** A note carries up to five tags. After a successful save the browser asks
+  `POST /api/ai/tag` without waiting for it. The server reads the note itself. It skips
+  a note whose tags were changed by hand and an unchanged note, then matches every
+  existing tag name found in the text, and only when none is found calls `tagNote`,
+  which returns up to three. Notes never checked are picked up on a later page load,
+  five at most, or all at once from the Untagged tab of the Tags screen.
+- **Hand tagging.** `PUT /api/ai/tag` replaces a note's whole tag set. Each add or remove
+  in the tag editor saves at once, on the journal and on the Tags screen. It needs no
+  model and no key. The editor also offers existing tags found in the note text as
+  one-tap suggestions, computed in the browser by `suggestTags` in `lib/tagIndex.ts`.
+- **Lookup.** The Tags screen at `/tags` is built in the browser from data already
+  loaded: `buildTagIndex` groups tags by bucket with a note count and the last date, and
+  `searchNotes` matches note text. Neither makes a request or a model call.
+- **Cleaning.** `lib/glossary.ts` suggests spelling fixes for technique names in the
+  browser with no call. A grammar check runs `cleanNote` only when its button is pressed.
+  Accepting a suggestion changes the editor draft, which the user then saves.
+- **Tag cleanup.** `tagCleanup` receives tag names and counts, never note text, and
+  returns suggested merges. A merge happens only when the user accepts it.
+- **Cost.** Every model call records its job, model, and input and output token counts
+  in `bjj_ai_runs`.
+- **Model choice.** `AI_MODEL` sets the model for every job, and `AI_MODEL_<JOB>` for
+  one. `lib/ai/provider.ts` sends thinking disabled so the output cap is a true cap; a
+  model that rejects that setting needs a provider change.
+
 ## Data flow
 
 **Reading.** `app/page.tsx` checks the session and renders `Journal`, or redirects to
 `/login`. `Journal` fetches `GET /api/entries`, which returns every entry as an object
 keyed by date.
+
+**Looking up.** `app/tags/page.tsx` checks the session and renders `TagIndex`, which
+fetches `GET /api/entries` and `GET /api/ai/tags`. The selected tag and tab live in the
+URL (`/tags?tag=...`, `/tags?view=untagged`), so Back works and a tag chip anywhere links
+straight to its notes. "Open in journal" links to `/?date=YYYY-MM-DD`.
 
 **Saving.** The editor sends `PUT /api/entries` with one date and one entry. The route
 checks the session and origin, validates the body, then upserts the row. If the entry
@@ -53,11 +102,21 @@ One row per training day, in `bjj_entries`:
 | `attire` | `text`, nullable | `gi` or `nogi`. Null means not recorded |
 | `updated_at` | `timestamptz` | Set on each save |
 
+AI output and tags live in five separate tables, added by `db/migrations/003_ai.sql`:
+
+| Table | Contents |
+|---|---|
+| `bjj_tags` | Tag name and its bucket. The bucket belongs to the tag and is chosen once |
+| `bjj_entry_tags` | One row per tag on a day, and who set it (`code`, `ai`, or `user`). At most five per day, enforced in `app/api/ai/tag/route.ts` |
+| `bjj_entry_tag_state` | One row per day that tagging has looked at: the hash of the note text the tags came from, and `by_user`, set once the tags are changed by hand. No job touches a `by_user` day. A row with no tags means "checked, none" or "all removed by hand" |
+| `bjj_ai_outputs` | The latest output of each job for each scope, with its input hash |
+| `bjj_ai_runs` | One row per model call: job, model, and token counts. No text |
+
 ## Modules
 
 | Path | Responsibility |
 |---|---|
-| `app/page.tsx`, `app/login/page.tsx` | Server pages: session check and sign-in form |
+| `app/page.tsx`, `app/tags/page.tsx`, `app/login/page.tsx` | Server pages: session check, then the journal, the Tags screen, or the sign-in form |
 | `app/components/Journal.tsx` | Client state: entries, selected date, saving, and import |
 | `app/components/Calendar.tsx` | Week view that expands to a full month, plus the attire legend |
 | `app/components/JournalEntry.tsx` | Read and edit views for the selected day |
@@ -68,12 +127,20 @@ One row per training day, in `bjj_entries`:
 | `lib/entries.ts` | Runtime validation of untrusted entry data |
 | `lib/auth.ts` | Password check, session signing, same-origin check. Server only |
 | `lib/db.ts` | Lazily created `pg` pool. Server only |
+| `lib/ai/` | The AI layer: `run.ts`, `jobs/`, `context.ts`, `hash.ts`, `tagMatch.ts`, and `buckets.ts` are pure and take the store and provider as arguments. `config.ts`, `provider.ts`, and `store.ts` are server only |
+| `lib/glossary.ts`, `lib/nextItems.ts` | Pure: technique-name spelling suggestions, and next-time items parsed from note text |
+| `lib/aiClient.ts` | Browser helpers for `/api/ai/*`. They return null on any failure and never throw |
+| `lib/useTagState.ts` | Client hook shared by the journal and the Tags screen: tag state, auto-tag, add and remove, and the props for `TagEditor` |
+| `lib/tagIndex.ts` | Pure: the tag index, note text search, and tag suggestions from note text |
+| `app/components/organisms/TagIndex/` | The Tags screen. `TagIndex` loads data; `TagIndexView` renders it and is reused by the preview |
+| `app/components/organisms/AppHeader/` | Brand, Journal / Tags navigation, and sign out, with a check for an unsaved draft |
+| `app/api/ai/` | HTTP routes for tags, tagging, the grammar check, tag cleanup and merge, and token usage |
 | `db/migrations/` | Ordered SQL files |
 | `scripts/` | Migrations, deployment, and production-secret tools |
 | `tests/` | Playwright browser tests |
-| `dev/`, `app/dev/page.dev.tsx` | Development-only preview at `/dev`: the real calendar, stats, and entry with made-up fixtures |
+| `dev/`, `app/dev/**/page.dev.tsx` | Development-only previews at `/dev` and `/dev/tags`: the real journal and Tags screen components with made-up fixtures |
 
-State lives in `Journal` and passes down as props. Interactive components are client
+Entry state lives in `Journal` and passes down as props; tag state lives in `useTagState`. Interactive components are client
 components. Styling uses CSS Modules with dark-theme variables from `app/globals.css`
 and the system font stack, with no UI library or external font. In the calendar, today
 has a green highlight and the selected day a blue one. Entry dots are tinted by attire
@@ -87,9 +154,14 @@ and stay blue when none is recorded.
 - `DATABASE_URL` (pooled) serves the app. `DATABASE_URL_UNPOOLED` (direct) is used only
   by `scripts/migrate.mjs`.
 - Local development and production use separate Neon branches.
-- The `/dev` preview exists only under `next dev`. `next.config.mjs` adds the
+- Note text leaves the app only through `lib/ai/provider.ts`, to the configured model
+  provider, and only for `tagNote` and `cleanNote`. Components hold no prompt text and
+  never call a provider. `ANTHROPIC_API_KEY` is read on the server only.
+- If the key or the AI tables are missing, `/api/ai/*` answers 503 and the journal works
+  as it did before, with no tag UI.
+- The `/dev` previews exist only under `next dev`. `next.config.mjs` adds the
   `page.dev.tsx` extension only in development, so production builds never compile the
-  page or its fixtures. It reads no session, database, or network.
+  pages or their fixtures. They read no session, database, or network.
 
 ## Invariants
 
@@ -106,3 +178,9 @@ and stay blue when none is recorded.
 | Migrations run in one transaction under an advisory lock | A failed or concurrent run can't leave the schema half changed |
 | Only `prod` deploys to production | `vercel.json` and `scripts/check-deployment.mjs` make release a deliberate step |
 | Journal text and credentials stay out of logs and error messages | The notes are private, and logs are copied to other systems |
+| AI code never writes `bjj_entries.text` | A model can be wrong, so every text change must be an edit the user made and saved |
+| Every model call goes through `runJob` | One place enforces the output cap, the saved-output check, and token logging |
+| A save never waits on AI | Tagging can be slow or fail, and a note must still save |
+| Once a note's tags are changed by hand, no job changes them again | A correction that gets undone is worse than no tagging |
+| Tag lookup and search run in the browser on loaded data | Finding a note must be instant and must never cost tokens |
+| Nothing merges tags without an explicit accept | A wrong merge rewrites many notes' tags at once |
