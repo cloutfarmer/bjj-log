@@ -5,6 +5,8 @@
  * next.config.mjs leaves out of production builds. */
 import { useEffect, useState } from "react";
 import { BUCKETS } from "../lib/ai/buckets";
+import { MAX_TAGS_PER_ENTRY } from "../lib/ai/tagMatch";
+import { suggestTags } from "../lib/tagIndex";
 import Calendar from "../app/components/Calendar";
 import JournalEntry from "../app/components/JournalEntry";
 import LogoMark from "../app/components/atoms/LogoMark/LogoMark";
@@ -57,15 +59,28 @@ export default function JournalPreview() {
     });
   }
   // Tag edits stay in memory too; a new tag joins the suggestions, as in the real journal.
-  function setTag(date: string, tag: string | null, bucket: string | null) {
-    if (tag && bucket) setTags((previous) => ({ ...previous, [tag]: previous[tag] ?? bucket }));
-    setEntryTags((previous) => ({ ...previous, [date]: { tag, source: "user" } }));
+  function addTag(date: string, name: string, bucket: string) {
+    setTags((previous) => ({ ...previous, [name]: previous[name] ?? bucket }));
+    setEntryTags((previous) => {
+      const current = previous[date]?.tags ?? [];
+      if (current.some((tag) => tag.name === name) || current.length >= MAX_TAGS_PER_ENTRY) return previous;
+      return { ...previous, [date]: { tags: [...current, { name, source: "user" }], byUser: true } };
+    });
+  }
+  function removeTag(date: string, name: string) {
+    setEntryTags((previous) => ({
+      ...previous,
+      [date]: { tags: (previous[date]?.tags ?? []).filter((tag) => tag.name !== name), byUser: true },
+    }));
   }
   // Cleanup fake: merging repoints the in-memory entry tags, as the real route does.
   async function handleMerge(from: string, into: string) {
     setTags((previous) => Object.fromEntries(Object.entries(previous).filter(([name]) => name !== from)));
     setEntryTags((previous) =>
-      Object.fromEntries(Object.entries(previous).map(([date, item]) => [date, item.tag === from ? { ...item, tag: into } : item])),
+      Object.fromEntries(Object.entries(previous).map(([date, item]) => [
+          date,
+          { ...item, tags: item.tags.some((tag) => tag.name === from) ? item.tags.map((tag) => (tag.name === from ? { ...tag, name: into } : tag)).filter((tag, index, all) => all.findIndex((other) => other.name === tag.name) === index) : item.tags },
+        ]),),
     );
     return true;
   }
@@ -81,7 +96,6 @@ export default function JournalPreview() {
   );
 
   const selectedEntry = selectedDate ? entries[selectedDate] : undefined;
-  const selectedTag = selectedDate ? entryTags[selectedDate]?.tag ?? null : null;
 
   return (
     <main className={pageStyles.main}>
@@ -115,15 +129,15 @@ export default function JournalPreview() {
                 savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
                 onSave={handleSave}
                 onDirtyChange={noop}
-                tagging={selectedEntry?.text.trim() && selectedDate ? {
-                  tag: selectedTag,
-                  bucket: selectedTag ? tags[selectedTag] ?? null : null,
-                  source: entryTags[selectedDate]?.source,
-                  tags,
+                tagging={selectedEntry && selectedDate ? {
+                  tags: (entryTags[selectedDate]?.tags ?? []).map((tag) => ({ name: tag.name, bucket: tags[tag.name] ?? null, source: tag.source })),
+                  suggestions: suggestTags(selectedEntry.text, Object.keys(tags), (entryTags[selectedDate]?.tags ?? []).map((tag) => tag.name)),
+                  allTags: tags,
                   buckets: BUCKETS,
+                  max: MAX_TAGS_PER_ENTRY,
                   busy: false,
-                  onChange: (tag, bucket) => setTag(selectedDate, tag, bucket),
-                  onRemove: () => setTag(selectedDate, null, null),
+                  onAdd: (name, bucket) => addTag(selectedDate, name, bucket),
+                  onRemove: (name) => removeTag(selectedDate, name),
                 } : undefined}
               />
             </div>

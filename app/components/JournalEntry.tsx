@@ -5,6 +5,8 @@ import TagEditor from "./molecules/TagEditor/TagEditor";
 import NoteCleaner from "./organisms/NoteCleaner/NoteCleaner";
 import styles from "./JournalEntry.module.css";
 
+import type { TagEditorProps } from "../../lib/useTagState";
+
 import { ATTIRE_OPTIONS } from "../types";
 import type { Attire, JournalEntryData } from "../types";
 
@@ -16,16 +18,7 @@ interface JournalEntryProps {
   /** Present only when the AI grammar check is available; it runs only on a button press. */
   onCheckGrammar?: (date: string, text: string) => Promise<{ from: string; to: string }[] | null>;
   /** Present only when tagging is available for this saved note; absent renders nothing new. */
-  tagging?: {
-    tag: string | null;
-    bucket: string | null;
-    source?: "code" | "ai" | "user";
-    tags: Readonly<Record<string, string>>;
-    buckets: readonly string[];
-    busy: boolean;
-    onChange: (tag: string, bucket: string) => void;
-    onRemove: () => void;
-  };
+  tagging?: TagEditorProps;
 }
 
 const MONTH_NAMES = [
@@ -219,9 +212,9 @@ export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirty
                   })}
                 </div>
               )}
-              {tagging && savedText.length > 0 && (
+              {tagging && (
                 <div className={styles.tagSection}>
-                  <span className={styles.sessionLabel}>Tag</span>
+                  <span className={styles.sessionLabel}>Tags</span>
                   <TagEditor {...tagging} />
                 </div>
               )}

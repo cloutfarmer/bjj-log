@@ -69,12 +69,19 @@ export function buildPreviewFixtures(today: Date) {
   const entries: Record<string, JournalEntryData> = Object.fromEntries(
     sessions.map(({ day, entry }) => [keyFor(day), entry] as const).filter(([key]) => key <= todayKey),
   );
-  // Tags for a few dates, so the preview shows tagged, user-set and untagged notes.
-  const entryTags: Record<string, { tag: string | null; source: "code" | "ai" | "user" }> = {
-    [keyFor(-20)]: { tag: "closed guard", source: "ai" },
-    [keyFor(-17)]: { tag: "leg entries", source: "ai" },
-    [keyFor(-13)]: { tag: "mount chokes", source: "user" },
-    [keyFor(FEATURED_DAY)]: { tag: "knee cut", source: "ai" },
+  // Tags for a few dates, so the preview shows several tags, one tag and untagged notes.
+  const entryTags: Record<string, { tags: { name: string; source: "code" | "ai" | "user" }[]; byUser: boolean }> = {
+    [keyFor(-20)]: { tags: [{ name: "closed guard", source: "ai" }], byUser: false },
+    [keyFor(-17)]: { tags: [{ name: "leg entries", source: "ai" }], byUser: false },
+    [keyFor(-13)]: { tags: [{ name: "mount chokes", source: "user" }], byUser: true },
+    [keyFor(FEATURED_DAY)]: {
+      tags: [
+        { name: "knee cut", source: "ai" },
+        { name: "closed guard", source: "code" },
+        { name: "mount chokes", source: "user" },
+      ],
+      byUser: true,
+    },
   };
   return { entries, entryTags, tags: previewTags, featuredDate: keyFor(FEATURED_DAY), cleanupMerges: previewMerges, usage: previewUsage };
 }
