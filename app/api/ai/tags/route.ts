@@ -1,6 +1,6 @@
 import { isAuthenticated } from "../../../../lib/auth";
 import { apiKey } from "../../../../lib/ai/config";
-import { cleanupDue, countPending, listEntryTags, listPendingDates, listTags } from "../../../../lib/ai/store";
+import { getTagState } from "../../../../lib/ai/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,15 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await isAuthenticated())) return new Response("Unauthorized", { status: 401 });
   try {
-    const [entryTags, tags, pending, pendingCount, due] = await Promise.all([
-      listEntryTags(),
-      listTags(),
-      listPendingDates(20),
-      countPending(),
-      cleanupDue(),
-    ]);
+    const state = await getTagState(20);
     return Response.json(
-      { available: apiKey() !== null, entryTags, tags, pending, pendingCount, cleanupDue: due },
+      { available: apiKey() !== null, ...state },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch {

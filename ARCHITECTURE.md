@@ -38,7 +38,10 @@ constraint, so anything that plain code can do makes no model call.
   `tagCleanup`, and three registered but not yet called: `dailyBrief`, `weeklySummary`,
   `monthlyRecap`.
 - **Saved outputs.** Each output is stored with a hash of the job name, prompt version,
-  and input. A matching hash returns the saved output with no call.
+  and input. A matching hash returns the saved output with no call. A reply the
+  validator rejects is saved as a failure marker under the same hash: the input is sent
+  once more, and after two unusable replies it fails with no call until the input or
+  the prompt version changes. A failed usage log never discards a reply.
 - **One context builder.** `lib/ai/context.ts` turns notes into one compact line each and
   does all counting. `lib/nextItems.ts` reads next-time items from lines that start with
   `next:`; `[x]` or a trailing `(done)` marks one done.
@@ -46,8 +49,15 @@ constraint, so anything that plain code can do makes no model call.
   `POST /api/ai/tag` without waiting for it. The server reads the note itself. It skips
   a note whose tags were changed by hand and an unchanged note, then matches every
   existing tag name found in the text, and only when none is found calls `tagNote`,
-  which returns up to three. Notes never checked are picked up on a later page load,
-  five at most, or all at once from the Untagged tab of the Tags screen.
+  which returns up to three. A save that leaves the text unchanged asks for nothing.
+  Notes never checked are picked up on a later page load, five at most, or all at once
+  from the Untagged tab of the Tags screen. Catch-up skips a note that fails and stops
+  after two failures in a row.
+- **Few queries.** `GET /api/ai/tags` reads everything in one statement (`getTagState`
+  in `lib/ai/store.ts`), and both tag handlers read their note, its tags, and the known
+  tags in one (`loadTagContext`). Tag rows are written as arrays, one statement for any
+  number of tags. Known tag names go to the model sorted, so the same tags always give
+  the same input hash.
 - **Hand tagging.** `PUT /api/ai/tag` replaces a note's whole tag set. Each add or remove
   in the tag editor saves at once, on the journal and on the Tags screen. It needs no
   model and no key. The editor also offers existing tags found in the note text as

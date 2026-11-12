@@ -8,7 +8,7 @@ import { JOBS } from "../../../../lib/ai/jobs";
 import { anthropicProvider } from "../../../../lib/ai/provider";
 import { runJob } from "../../../../lib/ai/run";
 import { MAX_TAGS_PER_ENTRY, matchTags } from "../../../../lib/ai/tagMatch";
-import { getEntryTags, getEntryText, listTags, pgStore, saveJobTags, saveUserTags } from "../../../../lib/ai/store";
+import { getEntryTags, listTags, loadTagContext, pgStore, saveJobTags, saveUserTags } from "../../../../lib/ai/store";
 
 import type { NewTag } from "../../../../lib/ai/store";
 
@@ -47,11 +47,12 @@ export async function POST(request: Request) {
   if (!isDate(body?.date)) return new Response("Invalid date", { status: 400 });
   const date: string = body.date;
   try {
-    const text = await getEntryText(date);
-    if (text === null || !text.trim()) return new Response("No note to tag", { status: 404 });
+    const context = await loadTagContext(date);
+    if (context === null || !context.text.trim()) return new Response("No note to tag", { status: 404 });
+    const { text, known, state: current } = context;
     const hash = hashText(text);
-    const known = await listTags();
-    const current = await getEntryTags(date);
+    // Sorted, so the same tags always build the same model input and reuse its saved output.
+    const knownNames = Object.keys(known).sort();
     if (current && (current.byUser || current.textHash === hash)) {
       return reply(current.tags, current.byUser, known, {}, false);
     }
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       return reply(latest?.tags ?? [], latest?.byUser ?? true, await listTags(), {}, false);
     };
 
-    const matched = matchTags(text, Object.keys(known), normalizeTerms);
+    const matched = matchTags(text, knownNames, normalizeTerms);
     if (matched.length) return await finish(matched.map((name) => ({ name, newBucket: null })), "code", false);
 
     const key = apiKey();
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
     const result = await runJob(
       JOBS.tagNote,
       date,
-      { text, tags: Object.keys(known) },
+      { text, tags: knownNames },
       { store: pgStore, provider: anthropicProvider(key), model: modelFor("tagNote") },
     );
     if (!result.ok) return new Response(UNAVAILABLE, { status: 503 });
@@ -104,10 +105,10 @@ export async function PUT(request: Request) {
     wanted.push({ name, bucket: (item as { bucket?: unknown }).bucket });
   }
   try {
-    const text = await getEntryText(date);
-    if (text === null) return new Response("No note to tag", { status: 404 });
-    const hash = hashText(text);
-    const known = await listTags();
+    const context = await loadTagContext(date);
+    if (context === null) return new Response("No note to tag", { status: 404 });
+    const hash = hashText(context.text);
+    const known = context.known;
     const names = Object.keys(known);
     const tags: NewTag[] = [];
     const extra: Record<string, string> = {};
@@ -123,10 +124,8 @@ export async function PUT(request: Request) {
         extra[name] = bucket;
       }
     }
-    await saveUserTags(date, tags, hash);
-    const saved = await getEntryTags(date);
-    const latest = await listTags();
-    return reply(saved?.tags ?? tags.map((t) => ({ name: t.name, source: "user" as const })), true, latest, extra);
+    const saved = await saveUserTags(date, tags, hash);
+    return reply(saved, true, known, extra);
   } catch {
     return new Response(UNAVAILABLE, { status: 503 });
   }

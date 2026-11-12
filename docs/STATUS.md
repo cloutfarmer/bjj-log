@@ -78,6 +78,13 @@ Each entry gives the date, environment, what ran, and the result.
   across screens, a tag opened from its row and Back returned, a calendar day opened the
   journal, and leaving an unsaved draft asked first.
 
+- 2026-11-12, LOCAL, no database, on `feature/ai-data-flow` (stacked on
+  `feature/ai-notes`): `npm run typecheck`, `npm run lint`, `npm run build`,
+  `git diff --check`, `node .agent/repository-scan.mjs`, and
+  `npx playwright test tests/stats.spec.ts tests/ai-core.spec.ts tests/glossary.spec.ts tests/tag-index.spec.ts`
+  (50 tests) passed. `/dev` and `/dev/tags` rendered at 390px wide with no error other
+  than the known `/favicon.ico` 404.
+
 ## Unverified
 
 - The four screens have not been seen signed in with real data: the checks above used
@@ -87,7 +94,9 @@ Each entry gives the date, environment, what ran, and the result.
   Tags screen. No redirect was added, because neither address was released.
 - Tag chips in the tag editor are under 24px tall, below the usual touch-target size.
   They predate the screens.
-
+- On `feature/ai-data-flow`, the rewritten SQL in `lib/ai/store.ts` (`getTagState`,
+  `loadTagContext`, the array inserts in `saveJobTags` and `saveUserTags`) has not run
+  against a database. Load `/tags`, add and remove a tag, and auto-tag a note on LOCAL.
 - Tag quality on real notes is only partly good. With the version 3 prompt every note got
   plausible tags, but three things were seen and not fixed: a note that mentions one
   existing tag in passing gets only that tag, because a text match skips the model; the

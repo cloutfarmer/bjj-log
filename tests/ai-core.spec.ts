@@ -77,13 +77,43 @@ test("a provider failure saves and logs nothing", async () => {
   expect(runs).toHaveLength(0);
 });
 
-test("invalid model text is logged but not saved", async () => {
-  const { provider } = fakeProvider(reply("not json at all"));
-  const { store, saved, runs } = memoryStore();
-  const result = await runJob(JOBS.cleanNote, "d", { text: "abc" }, { store, provider, model: "m" });
-  expect(result).toEqual({ ok: false, error: "invalid-output" });
-  expect(saved.size).toBe(0);
-  expect(runs).toHaveLength(1);
+test("invalid model text is logged, retried once, then never sent again", async () => {
+  const { provider, calls } = fakeProvider(reply("not json at all"));
+  const { store, runs } = memoryStore();
+  const deps = { store, provider, model: "m" };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    expect(await runJob(JOBS.cleanNote, "d", { text: "abc" }, deps)).toEqual({ ok: false, error: "invalid-output" });
+  }
+  // Two paid calls in total, however often the same note is asked about.
+  expect(calls).toHaveLength(2);
+  expect(runs).toHaveLength(2);
+
+  // A changed note is a new input and is sent.
+  await runJob(JOBS.cleanNote, "d", { text: "abcd" }, deps);
+  expect(calls).toHaveLength(3);
+});
+
+test("a good reply after an invalid one is saved and served from the cache", async () => {
+  const { store } = memoryStore();
+  const bad = fakeProvider(reply("not json at all"));
+  const good = fakeProvider(reply("[]"));
+  expect((await runJob(JOBS.cleanNote, "d", { text: "abc" }, { store, provider: bad.provider, model: "m" })).ok).toBe(false);
+  const second = await runJob(JOBS.cleanNote, "d", { text: "abc" }, { store, provider: good.provider, model: "m" });
+  expect(second).toMatchObject({ ok: true, cached: false, output: { edits: [] } });
+  const third = await runJob(JOBS.cleanNote, "d", { text: "abc" }, { store, provider: good.provider, model: "m" });
+  expect(third).toMatchObject({ ok: true, cached: true });
+  expect(good.calls).toHaveLength(1);
+});
+
+test("a failed usage log does not throw away a paid reply", async () => {
+  const { provider, calls } = fakeProvider(reply("[]"));
+  const { store, saved } = memoryStore();
+  const failingLog = { ...store, logRun: async () => { throw new Error("log failed"); } };
+  const deps = { store: failingLog, provider, model: "m" };
+  expect(await runJob(JOBS.cleanNote, "d", { text: "abc" }, deps)).toMatchObject({ ok: true, cached: false });
+  expect(saved.size).toBe(1);
+  expect(await runJob(JOBS.cleanNote, "d", { text: "abc" }, deps)).toMatchObject({ ok: true, cached: true });
+  expect(calls).toHaveLength(1);
 });
 
 test("tagNote reuses existing tags case-insensitively", () => {

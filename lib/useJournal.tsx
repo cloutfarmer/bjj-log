@@ -87,6 +87,7 @@ export function useJournal(): JournalValue {
 
 const STORAGE_KEY = "bjj-log-entries";
 const DISCARD_PROMPT = "Discard unsaved changes?";
+const CATCH_UP_LIMIT = 5;
 const isEmpty = (entry: JournalEntryData) => !entry.text.trim() && !entry.sessionTypes.length && !entry.attire;
 
 /** Loads the journal once for every screen and owns the calls that change it. */
@@ -131,8 +132,13 @@ export function JournalProvider({ children }: { children: ReactNode }) {
       // Tags notes saved while AI was unavailable, newest first and one at a time to keep provider load low.
       const state = await tagsLoading;
       if (!state) return;
-      for (const date of state.pending.slice(0, 5)) {
-        if (!(await autoTag(date))) return;
+      // One note that can't be tagged must not block the ones behind it, but two failures
+      // in a row mean tagging is down, so stop until the next load.
+      let tagged = 0;
+      let failures = 0;
+      for (const date of state.pending) {
+        if (tagged >= CATCH_UP_LIMIT || failures >= 2) return;
+        if (await autoTag(date)) { tagged++; failures = 0; } else failures++;
       }
     })();
   }, [refresh, reload, autoTag]);
@@ -153,6 +159,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
   async function save(dateStr: string, entry: JournalEntryData) {
     setBusy(true);
     setNotice("");
+    const previousText = entries[dateStr]?.text;
     try {
       const response = await fetch("/api/entries", {
         method: "PUT", headers: { "Content-Type": "application/json" },
@@ -169,7 +176,8 @@ export function JournalProvider({ children }: { children: ReactNode }) {
       setNotice("Saved to your journal.");
       // Tagging is best effort and never delays or fails the save.
       if (isEmpty(entry)) forget(dateStr);
-      if (entry.text.trim() && tagState) void autoTag(dateStr);
+      // Tags come from the text, so a save that leaves it unchanged asks for nothing.
+      if (entry.text.trim() && tagState && entry.text !== previousText) void autoTag(dateStr);
     } finally { setBusy(false); }
   }
 
