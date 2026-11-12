@@ -53,12 +53,19 @@ export async function getEntryText(date: string): Promise<string | null> {
   return rows[0]?.text ?? null;
 }
 
-export async function getEntryTag(date: string): Promise<{ tag: string | null; source: TagSource; textHash: string } | null> {
-  const { rows } = await database().query<{ tag: string | null; source: TagSource; textHash: string }>(
-    'SELECT tag, source, text_hash AS "textHash" FROM bjj_entry_tags WHERE entry_date = $1',
+export async function getEntryTags(
+  date: string,
+): Promise<{ tags: { name: string; source: TagSource }[]; byUser: boolean; textHash: string } | null> {
+  const state = await database().query<{ byUser: boolean; textHash: string }>(
+    'SELECT by_user AS "byUser", text_hash AS "textHash" FROM bjj_entry_tag_state WHERE entry_date = $1',
     [date],
   );
-  return rows[0] ?? null;
+  if (!state.rows[0]) return null;
+  const { rows } = await database().query<{ name: string; source: TagSource }>(
+    "SELECT tag AS name, source FROM bjj_entry_tags WHERE entry_date = $1 ORDER BY created_at, tag",
+    [date],
+  );
+  return { tags: rows, byUser: state.rows[0].byUser, textHash: state.rows[0].textHash };
 }
 
 export async function listTags(): Promise<Record<string, string>> {
@@ -66,48 +73,88 @@ export async function listTags(): Promise<Record<string, string>> {
   return Object.fromEntries(rows.map((r) => [r.name, r.bucket]));
 }
 
-export async function listEntryTags(): Promise<Record<string, { tag: string | null; source: TagSource }>> {
-  const { rows } = await database().query<{ date: string; tag: string | null; source: TagSource }>(
-    "SELECT entry_date::text AS date, tag, source FROM bjj_entry_tags",
+export async function listEntryTags(): Promise<
+  Record<string, { tags: { name: string; source: TagSource }[]; byUser: boolean }>
+> {
+  const states = await database().query<{ date: string; byUser: boolean }>(
+    'SELECT entry_date::text AS date, by_user AS "byUser" FROM bjj_entry_tag_state',
   );
-  return Object.fromEntries(rows.map((r) => [r.date, { tag: r.tag, source: r.source }]));
+  const tagRows = await database().query<{ date: string; name: string; source: TagSource }>(
+    "SELECT entry_date::text AS date, tag AS name, source FROM bjj_entry_tags ORDER BY created_at, tag",
+  );
+  const out: Record<string, { tags: { name: string; source: TagSource }[]; byUser: boolean }> = {};
+  for (const s of states.rows) out[s.date] = { tags: [], byUser: s.byUser };
+  for (const t of tagRows.rows) out[t.date]?.tags.push({ name: t.name, source: t.source });
+  return out;
 }
+
+const PENDING_WHERE = `btrim(e.text) <> '' AND (s.entry_date IS NULL OR (s.by_user = false AND s.text_hash <> ${SQL_HASH}))`;
 
 export async function listPendingDates(limit: number): Promise<string[]> {
   const { rows } = await database().query<{ date: string }>(
     `SELECT e.entry_date::text AS date FROM bjj_entries e
-     LEFT JOIN bjj_entry_tags t ON t.entry_date = e.entry_date
-     WHERE btrim(e.text) <> '' AND (t.entry_date IS NULL OR (t.source <> 'user' AND t.text_hash <> ${SQL_HASH}))
+     LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
+     WHERE ${PENDING_WHERE}
      ORDER BY e.entry_date DESC LIMIT $1`,
     [limit],
   );
   return rows.map((r) => r.date);
 }
 
-const UPSERT_TAG = `INSERT INTO bjj_entry_tags (entry_date, tag, source, text_hash) VALUES ($1, $2, $3, $4)
-  ON CONFLICT (entry_date) DO UPDATE SET tag = EXCLUDED.tag, source = EXCLUDED.source, text_hash = EXCLUDED.text_hash, updated_at = now()`;
+export async function countPending(): Promise<number> {
+  const { rows } = await database().query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM bjj_entries e
+     LEFT JOIN bjj_entry_tag_state s ON s.entry_date = e.entry_date
+     WHERE ${PENDING_WHERE}`,
+  );
+  return rows[0]?.count ?? 0;
+}
+
+export interface NewTag {
+  name: string;
+  /** Set only for a name that is not in bjj_tags yet. */
+  newBucket: string | null;
+}
 
 const NEW_TAG = "INSERT INTO bjj_tags (name, bucket) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING";
+const ADD_ENTRY_TAG =
+  "INSERT INTO bjj_entry_tags (entry_date, tag, source) VALUES ($1, $2, $3) ON CONFLICT (entry_date, tag) DO NOTHING";
 
-export function saveJobTag(
-  date: string,
-  tag: string,
-  source: "code" | "ai",
-  textHash: string,
-  newBucket: string | null,
-): Promise<boolean> {
+async function ensureTags(client: PoolClient, tags: NewTag[]): Promise<void> {
+  for (const tag of tags) {
+    if (tag.newBucket !== null) await client.query(NEW_TAG, [tag.name, tag.newBucket]);
+  }
+}
+
+export function saveJobTags(date: string, tags: NewTag[], source: "code" | "ai", textHash: string): Promise<boolean> {
   return inTransaction(async (client) => {
-    if (newBucket !== null) await client.query(NEW_TAG, [tag, newBucket]);
-    // A hand-set row is never overwritten by a job.
-    const result = await client.query(`${UPSERT_TAG} WHERE bjj_entry_tags.source <> 'user'`, [date, tag, source, textHash]);
-    return (result.rowCount ?? 0) > 0;
+    // A hand-edited entry is never touched by a job.
+    const state = await client.query(
+      `INSERT INTO bjj_entry_tag_state (entry_date, text_hash) VALUES ($1, $2)
+       ON CONFLICT (entry_date) DO UPDATE SET text_hash = EXCLUDED.text_hash, updated_at = now()
+       WHERE bjj_entry_tag_state.by_user = false`,
+      [date, textHash],
+    );
+    if ((state.rowCount ?? 0) === 0) return false;
+    await client.query("DELETE FROM bjj_entry_tags WHERE entry_date = $1", [date]);
+    await ensureTags(client, tags);
+    for (const tag of tags) await client.query(ADD_ENTRY_TAG, [date, tag.name, source]);
+    return true;
   });
 }
 
-export async function saveUserTag(date: string, tag: string | null, textHash: string, newBucket: string | null): Promise<void> {
+export async function saveUserTags(date: string, tags: NewTag[], textHash: string): Promise<void> {
   await inTransaction(async (client) => {
-    if (tag !== null && newBucket !== null) await client.query(NEW_TAG, [tag, newBucket]);
-    await client.query(UPSERT_TAG, [date, tag, "user", textHash]);
+    await client.query(
+      `INSERT INTO bjj_entry_tag_state (entry_date, text_hash, by_user) VALUES ($1, $2, true)
+       ON CONFLICT (entry_date) DO UPDATE SET text_hash = EXCLUDED.text_hash, by_user = true, updated_at = now()`,
+      [date, textHash],
+    );
+    await ensureTags(client, tags);
+    const names = tags.map((t) => t.name);
+    await client.query("DELETE FROM bjj_entry_tags WHERE entry_date = $1 AND NOT (tag = ANY($2::text[]))", [date, names]);
+    // Rows that stay keep their original source.
+    for (const name of names) await client.query(ADD_ENTRY_TAG, [date, name, "user"]);
   });
 }
 
@@ -123,9 +170,14 @@ export function mergeTags(from: string, into: string): Promise<number | null> {
   return inTransaction(async (client) => {
     const found = await client.query("SELECT name FROM bjj_tags WHERE name = ANY($1)", [[from, into]]);
     if ((found.rowCount ?? 0) < 2) return null;
-    const moved = await client.query("UPDATE bjj_entry_tags SET tag = $2, updated_at = now() WHERE tag = $1", [from, into]);
+    // An entry that already has the target keeps it; its source row for `from` just goes away.
+    const dropped = await client.query(
+      "DELETE FROM bjj_entry_tags WHERE tag = $1 AND entry_date IN (SELECT entry_date FROM bjj_entry_tags WHERE tag = $2)",
+      [from, into],
+    );
+    const moved = await client.query("UPDATE bjj_entry_tags SET tag = $2 WHERE tag = $1", [from, into]);
     await client.query("DELETE FROM bjj_tags WHERE name = $1", [from]);
-    return moved.rowCount ?? 0;
+    return (dropped.rowCount ?? 0) + (moved.rowCount ?? 0);
   });
 }
 

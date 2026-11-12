@@ -7,8 +7,10 @@ import { isBucket } from "../../../../lib/ai/buckets";
 import { JOBS } from "../../../../lib/ai/jobs";
 import { anthropicProvider } from "../../../../lib/ai/provider";
 import { runJob } from "../../../../lib/ai/run";
-import { matchTag } from "../../../../lib/ai/tagMatch";
-import { getEntryTag, getEntryText, listTags, pgStore, saveJobTag, saveUserTag } from "../../../../lib/ai/store";
+import { MAX_TAGS_PER_ENTRY, matchTags } from "../../../../lib/ai/tagMatch";
+import { getEntryTags, getEntryText, listTags, pgStore, saveJobTags, saveUserTags } from "../../../../lib/ai/store";
+
+import type { NewTag } from "../../../../lib/ai/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +19,23 @@ const UNAVAILABLE = "AI features are unavailable right now.";
 const HEADERS = { "Cache-Control": "private, no-store" };
 
 type Source = "code" | "ai" | "user";
+type Tagged = { name: string; source: Source }[];
 
-function reply(tag: string | null, source: Source, tags: Record<string, string>, called: boolean, bucket?: string | null) {
-  return Response.json(
-    { tag, bucket: bucket ?? (tag === null ? null : (tags[tag] ?? null)), source, called },
-    { headers: HEADERS },
-  );
+function reply(tags: Tagged, byUser: boolean, known: Record<string, string>, extra: Record<string, string> = {}, called?: boolean) {
+  const buckets: Record<string, string> = {};
+  for (const { name } of tags) {
+    const bucket = Object.prototype.hasOwnProperty.call(known, name) ? known[name] : extra[name];
+    if (bucket !== undefined) buckets[name] = bucket;
+  }
+  const body: { tags: Tagged; byUser: boolean; buckets: Record<string, string>; called?: boolean } = { tags, byUser, buckets };
+  if (called !== undefined) body.called = called;
+  return Response.json(body, { headers: HEADERS });
+}
+
+function normalizeName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.trim().toLowerCase().replace(/\s+/g, " ");
+  return name.length >= 1 && name.length <= 40 ? name : null;
 }
 
 // The server reads the note itself; it never trusts text sent by the client here.
@@ -37,38 +50,44 @@ export async function POST(request: Request) {
     const text = await getEntryText(date);
     if (text === null || !text.trim()) return new Response("No note to tag", { status: 404 });
     const hash = hashText(text);
-    const tags = await listTags();
-    const current = await getEntryTag(date);
-    if (current && (current.source === "user" || current.textHash === hash)) {
-      return reply(current.tag, current.source, tags, false);
+    const known = await listTags();
+    const current = await getEntryTags(date);
+    if (current && (current.byUser || current.textHash === hash)) {
+      return reply(current.tags, current.byUser, known, {}, false);
     }
 
-    const finish = async (tag: string, source: "code" | "ai", bucket: string | null, called: boolean) => {
-      if (await saveJobTag(date, tag, source, hash, bucket)) return reply(tag, source, tags, called, bucket ?? tags[tag] ?? null);
-      // A hand-set tag appeared meanwhile and wins.
-      const latest = await getEntryTag(date);
-      return reply(latest?.tag ?? null, latest?.source ?? "user", await listTags(), false);
+    const finish = async (tags: NewTag[], source: "code" | "ai", called: boolean) => {
+      if (await saveJobTags(date, tags, source, hash)) {
+        const extra: Record<string, string> = {};
+        for (const t of tags) if (t.newBucket !== null) extra[t.name] = t.newBucket;
+        return reply(tags.map((t) => ({ name: t.name, source })), false, known, extra, called);
+      }
+      // A hand edit appeared meanwhile and wins.
+      const latest = await getEntryTags(date);
+      return reply(latest?.tags ?? [], latest?.byUser ?? true, await listTags(), {}, false);
     };
 
-    const match = matchTag(text, Object.keys(tags), normalizeTerms);
-    if (match) return await finish(match, "code", null, false);
+    const matched = matchTags(text, Object.keys(known), normalizeTerms);
+    if (matched.length) return await finish(matched.map((name) => ({ name, newBucket: null })), "code", false);
 
     const key = apiKey();
     if (key === null) return new Response(UNAVAILABLE, { status: 503 });
     const result = await runJob(
       JOBS.tagNote,
       date,
-      { text, tags: Object.keys(tags) },
+      { text, tags: Object.keys(known) },
       { store: pgStore, provider: anthropicProvider(key), model: modelFor("tagNote") },
     );
     if (!result.ok) return new Response(UNAVAILABLE, { status: 503 });
-    return await finish(result.output.tag, "ai", result.output.bucket, !result.cached);
+    const fromJob = result.output.tags.slice(0, MAX_TAGS_PER_ENTRY).map((t) => ({ name: t.tag, newBucket: t.bucket }));
+    // An empty list is saved too, so the note is not asked about again.
+    return await finish(fromJob, "ai", !result.cached);
   } catch {
     return new Response(UNAVAILABLE, { status: 503 });
   }
 }
 
-// Manual override, stored as source "user" so no job ever replaces it.
+// Manual override of the whole set; the entry is then marked by-user so no job touches it.
 export async function PUT(request: Request) {
   if (!(await isAuthenticated())) return new Response("Unauthorized", { status: 401 });
   if (!isSameOrigin(request)) return new Response("Forbidden", { status: 403 });
@@ -76,27 +95,38 @@ export async function PUT(request: Request) {
   try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
   if (!isDate(body?.date)) return new Response("Invalid date", { status: 400 });
   const date: string = body.date;
-  const raw: unknown = body.tag;
-  if (raw !== null && typeof raw !== "string") return new Response("Invalid tag", { status: 400 });
-  const name = raw === null ? null : raw.trim().toLowerCase().replace(/\s+/g, " ");
-  if (name !== null && (name.length < 1 || name.length > 40)) return new Response("Invalid tag", { status: 400 });
+  const raw: unknown = body.tags;
+  if (!Array.isArray(raw) || raw.length > MAX_TAGS_PER_ENTRY) return new Response("Invalid tags", { status: 400 });
+  const wanted: { name: string; bucket: unknown }[] = [];
+  for (const item of raw) {
+    const name = normalizeName(typeof item === "object" && item !== null ? (item as { name?: unknown }).name : undefined);
+    if (name === null) return new Response("Invalid tag", { status: 400 });
+    wanted.push({ name, bucket: (item as { bucket?: unknown }).bucket });
+  }
   try {
     const text = await getEntryText(date);
     if (text === null) return new Response("No note to tag", { status: 404 });
     const hash = hashText(text);
-    if (name === null) {
-      await saveUserTag(date, null, hash, null);
-      return Response.json({ tag: null, bucket: null, source: "user" }, { headers: HEADERS });
+    const known = await listTags();
+    const names = Object.keys(known);
+    const tags: NewTag[] = [];
+    const extra: Record<string, string> = {};
+    for (const { name, bucket } of wanted) {
+      const existing = names.find((t) => t.toLowerCase() === name);
+      const final = existing ?? name;
+      if (tags.some((t) => t.name === final)) continue;
+      if (existing !== undefined) {
+        tags.push({ name: existing, newBucket: null });
+      } else {
+        if (!isBucket(bucket)) return new Response("Invalid bucket", { status: 400 });
+        tags.push({ name, newBucket: bucket });
+        extra[name] = bucket;
+      }
     }
-    const tags = await listTags();
-    const existing = Object.keys(tags).find((t) => t.toLowerCase() === name);
-    if (existing !== undefined) {
-      await saveUserTag(date, existing, hash, null);
-      return Response.json({ tag: existing, bucket: tags[existing], source: "user" }, { headers: HEADERS });
-    }
-    if (!isBucket(body.bucket)) return new Response("Invalid bucket", { status: 400 });
-    await saveUserTag(date, name, hash, body.bucket);
-    return Response.json({ tag: name, bucket: body.bucket, source: "user" }, { headers: HEADERS });
+    await saveUserTags(date, tags, hash);
+    const saved = await getEntryTags(date);
+    const latest = await listTags();
+    return reply(saved?.tags ?? tags.map((t) => ({ name: t.name, source: "user" as const })), true, latest, extra);
   } catch {
     return new Response(UNAVAILABLE, { status: 503 });
   }
