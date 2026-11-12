@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isDate, parseEntry } from "../../lib/entries";
 import { BUCKETS } from "../../lib/ai/buckets";
-import { fetchTagState, requestTag, saveUserTag } from "../../lib/aiClient";
+import { fetchTagState, requestClean, requestTag, saveUserTag } from "../../lib/aiClient";
 import Calendar from "./Calendar";
 import JournalEntry from "./JournalEntry";
 import LogoMark from "./atoms/LogoMark/LogoMark";
@@ -241,6 +241,7 @@ export default function Home() {
           onSave={handleSave}
           onDirtyChange={setDirty}
           tagging={tagging}
+          onCheckGrammar={tagState?.available ? requestClean : undefined}
         /></div><aside className={`${styles.recent} ${styles.card}`}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes, tagState?.entryTags[date]?.tag ?? ""].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
       </div>}
     </main>

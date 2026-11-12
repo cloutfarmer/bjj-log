@@ -76,6 +76,26 @@ export async function fetchTagState(): Promise<TagState | null> {
   }
 }
 
+export type TextEdit = { from: string; to: string };
+
+/** Asks for grammar fixes to suggest. It edits nothing: the caller shows each fix for the user to accept. */
+export async function requestClean(date: string, text: string): Promise<TextEdit[] | null> {
+  try {
+    const response = await fetch("/api/ai/clean", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ date, text }) });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.edits)) return null;
+    const edits: TextEdit[] = [];
+    for (const item of body.edits) {
+      if (!isRecord(item) || typeof item.from !== "string" || typeof item.to !== "string") return null;
+      edits.push({ from: item.from, to: item.to });
+    }
+    return edits;
+  } catch {
+    return null;
+  }
+}
+
 export function requestTag(date: string): Promise<TagResult | null> {
   return send("POST", { date });
 }

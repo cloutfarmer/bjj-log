@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import TagEditor from "./molecules/TagEditor/TagEditor";
+import NoteCleaner from "./organisms/NoteCleaner/NoteCleaner";
 import styles from "./JournalEntry.module.css";
 
 import { ATTIRE_OPTIONS } from "../types";
@@ -12,6 +13,8 @@ interface JournalEntryProps {
   savedEntry: JournalEntryData;
   onDirtyChange: (dirty: boolean) => void;
   onSave: (date: string, entry: JournalEntryData) => Promise<void>;
+  /** Present only when the AI grammar check is available; it runs only on a button press. */
+  onCheckGrammar?: (date: string, text: string) => Promise<{ from: string; to: string }[] | null>;
   /** Present only when tagging is available for this saved note; absent renders nothing new. */
   tagging?: {
     tag: string | null;
@@ -48,7 +51,7 @@ function formatDateHeading(dateStr: string) {
 
 const PREVIEW_LINES = 6;
 
-export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirtyChange, tagging }: JournalEntryProps) {
+export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirtyChange, onCheckGrammar, tagging }: JournalEntryProps) {
   const [text, setText] = useState(savedEntry.text);
   const [sessionTypes, setSessionTypes] = useState(savedEntry.sessionTypes);
   const [attire, setAttire] = useState<Attire | null>(savedEntry.attire);
@@ -169,6 +172,13 @@ export default function JournalEntry({ selectedDate, savedEntry, onSave, onDirty
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="What did you learn today? Key techniques, rolls, notes..."
+          />
+          {/* Accepting a suggestion goes through setText, so dirty tracking and Cancel work unchanged. */}
+          <NoteCleaner
+            key={selectedDate}
+            text={text}
+            onApply={setText}
+            onCheckGrammar={onCheckGrammar ? (draft) => onCheckGrammar(selectedDate, draft) : undefined}
           />
           <div className={styles.actions}>
             <button className={styles.saveBtn} onClick={handleSave}>
