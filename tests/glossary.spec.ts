@@ -114,6 +114,22 @@ test("suggested terms are canonical glossary entries", () => {
   }
 });
 
+test("a correct term missing from the glossary is not turned into another term", () => {
+  expect(findCorrections("we did ankle lock defense")).toEqual([]);
+  expect(findCorrections("straight ankle locks in the gi")).toEqual([]);
+  expect(normalizeTerms("ankle lock defense")).toBe("ankle lock defense");
+});
+
+test("a window made only of glossary words gets no fuzzy suggestion", () => {
+  // "guard roll" is within edit distance 2 of "guard pull" but both words are correct.
+  expect(findCorrections("a guard roll drill")).toEqual([]);
+});
+
+test("a window with a non-glossary word is still suggested", () => {
+  expect(findCorrections("a de la hiba entry").map((c) => c.to)).toEqual(["de la riva"]);
+  expect(findCorrections("tried an omoplatta").map((c) => c.to)).toEqual(["omoplata"]);
+});
+
 test("a 5,000 character note is fast", () => {
   const sentence = "Drilled the de la hiva sweep and a kimora, felt tired but sharp with grips. ";
   const text = sentence.repeat(Math.ceil(5000 / sentence.length));

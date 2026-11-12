@@ -65,6 +65,7 @@ export const GLOSSARY: readonly string[] = [
   "north south choke",
   "rear naked choke",
   "armbar",
+  "ankle lock",
   "straight ankle lock",
   "heel hook",
   "inside heel hook",
@@ -247,6 +248,7 @@ const SPACES_ONLY = /^[ \t]+$/;
 const SUFFIXES = ["s", "es", "ed", "d", "ing", "er", "ers"];
 
 const GLOSSARY_SET: ReadonlySet<string> = new Set(GLOSSARY);
+const GLOSSARY_WORDS: ReadonlySet<string> = new Set(GLOSSARY.flatMap((term) => term.split(" ")));
 
 interface FuzzyTerm {
   term: string;
@@ -349,6 +351,8 @@ export function findCorrections(text: string): Correction[] {
         continue;
       }
       if (parts.some((part) => part.length < 2)) continue;
+      // A typo needs a word that is not already a glossary word; else it is a correct term missing from the list.
+      if (n > 1 && parts.every((part) => GLOSSARY_WORDS.has(part))) continue;
       for (const { term, limit } of FUZZY_TERMS.get(`${n}|${w[0]}`) ?? []) {
         if (n === 1 && COMMON_WORDS.has(w)) break;
         if (isInflection(w, term)) continue;
