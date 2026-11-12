@@ -1,0 +1,59 @@
+.editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.none {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.button,
+.save {
+  min-height: 40px;
+  padding: 4px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.button {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.save {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.save:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.input {
+  min-height: 40px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 16px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

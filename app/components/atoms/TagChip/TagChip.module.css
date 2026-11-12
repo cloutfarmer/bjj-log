@@ -1,0 +1,29 @@
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.user {
+  border-style: dashed;
+}
+
+.tag {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bucket {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
