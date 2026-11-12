@@ -104,3 +104,63 @@ export function requestTag(date: string): Promise<TagResult | null> {
 export function saveUserTag(date: string, tag: string | null, bucket?: string): Promise<TagResult | null> {
   return send("PUT", bucket === undefined ? { date, tag } : { date, tag, bucket });
 }
+
+export type TagMerge = { from: string; into: string };
+
+/** Asks which tags look like duplicates. It merges nothing: the caller shows each pair for the user to accept. */
+export async function requestCleanup(): Promise<TagMerge[] | null> {
+  try {
+    const response = await fetch("/api/ai/cleanup", { method: "POST", headers: JSON_HEADERS, body: "{}" });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.merges)) return null;
+    const merges: TagMerge[] = [];
+    for (const item of body.merges) {
+      if (!isRecord(item) || typeof item.from !== "string" || typeof item.into !== "string") return null;
+      merges.push({ from: item.from, into: item.into });
+    }
+    return merges;
+  } catch {
+    return null;
+  }
+}
+
+/** Performs one merge the user approved. True only when the server answered 2xx. */
+export async function mergeTags(from: string, into: string): Promise<boolean> {
+  try {
+    const response = await fetch("/api/ai/cleanup/merge", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ from, into }) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+type UsageCount = { runs: number; inputTokens: number; outputTokens: number };
+export type AiUsage = { jobs: (UsageCount & { job: string })[]; total: UsageCount };
+
+function parseCount(value: unknown): UsageCount | null {
+  if (!isRecord(value)) return null;
+  const { runs, inputTokens, outputTokens } = value;
+  if (typeof runs !== "number" || typeof inputTokens !== "number" || typeof outputTokens !== "number") return null;
+  return { runs, inputTokens, outputTokens };
+}
+
+export async function fetchUsage(): Promise<AiUsage | null> {
+  try {
+    const response = await fetch("/api/ai/usage", { cache: "no-store" });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.jobs)) return null;
+    const total = parseCount(body.total);
+    if (!total) return null;
+    const jobs: AiUsage["jobs"] = [];
+    for (const item of body.jobs) {
+      const count = parseCount(item);
+      if (!count || !isRecord(item) || typeof item.job !== "string") return null;
+      jobs.push({ job: item.job, ...count });
+    }
+    return { jobs, total };
+  } catch {
+    return null;
+  }
+}

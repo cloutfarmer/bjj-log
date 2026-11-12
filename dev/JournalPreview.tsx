@@ -8,6 +8,8 @@ import { BUCKETS } from "../lib/ai/buckets";
 import Calendar from "../app/components/Calendar";
 import JournalEntry from "../app/components/JournalEntry";
 import LogoMark from "../app/components/atoms/LogoMark/LogoMark";
+import TagCleanup from "../app/components/organisms/TagCleanup/TagCleanup";
+import AiUsage from "../app/components/organisms/AiUsage/AiUsage";
 import TrainingStats from "../app/components/organisms/TrainingStats/TrainingStats";
 import pageStyles from "../app/page.module.css";
 import { buildPreviewFixtures } from "./fixtures";
@@ -58,6 +60,14 @@ export default function JournalPreview() {
   function setTag(date: string, tag: string | null, bucket: string | null) {
     if (tag && bucket) setTags((previous) => ({ ...previous, [tag]: previous[tag] ?? bucket }));
     setEntryTags((previous) => ({ ...previous, [date]: { tag, source: "user" } }));
+  }
+  // Cleanup fake: merging repoints the in-memory entry tags, as the real route does.
+  async function handleMerge(from: string, into: string) {
+    setTags((previous) => Object.fromEntries(Object.entries(previous).filter(([name]) => name !== from)));
+    setEntryTags((previous) =>
+      Object.fromEntries(Object.entries(previous).map(([date, item]) => [date, item.tag === from ? { ...item, tag: into } : item])),
+    );
+    return true;
   }
   function shiftMonth(delta: number) {
     const next = new Date(year, month + delta, 1);
@@ -117,6 +127,15 @@ export default function JournalPreview() {
                 } : undefined}
               />
             </div>
+            <section aria-label="AI tools" className={`${pageStyles.aiTools} ${pageStyles.card}`}>
+              <TagCleanup
+                due
+                available
+                onFind={async () => fixtures.cleanupMerges.filter((m) => m.from in tags && m.into in tags)}
+                onMerge={handleMerge}
+              />
+              <AiUsage onLoad={async () => fixtures.usage} />
+            </section>
           </div>
         </div>
       </div>

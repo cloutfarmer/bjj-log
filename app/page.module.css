@@ -73,6 +73,14 @@
 }
 .content > * { min-width: 0; }
 
+/* Spans the whole row so it sits under both columns at desktop width and in the single phone column. */
+.aiTools {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .recent h2 {
   font-size: 0.875rem;
   font-weight: 500;

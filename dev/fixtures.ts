@@ -37,6 +37,22 @@ const previewTags: Record<string, string> = {
   "knee cut": "passing",
   "leg entries": "leg locks",
   "mount chokes": "submissions",
+  closedguard: "guard",
+  "knee-cut": "passing",
+};
+
+/** Made-up merge suggestions and token counts for the cleanup and usage fakes. */
+const previewMerges = [
+  { from: "closedguard", into: "closed guard" },
+  { from: "knee-cut", into: "knee cut" },
+];
+const previewUsage = {
+  jobs: [
+    { job: "Note tagging", runs: 42, inputTokens: 18450, outputTokens: 1260 },
+    { job: "Grammar check", runs: 7, inputTokens: 3920, outputTokens: 610 },
+    { job: "Tag cleanup", runs: 1, inputTokens: 380, outputTokens: 95 },
+  ],
+  total: { runs: 50, inputTokens: 22750, outputTokens: 1965 },
 };
 
 /** Builds the fixtures for the preview, with dates relative to `today`. */
@@ -60,5 +76,5 @@ export function buildPreviewFixtures(today: Date) {
     [keyFor(-13)]: { tag: "mount chokes", source: "user" },
     [keyFor(FEATURED_DAY)]: { tag: "knee cut", source: "ai" },
   };
-  return { entries, entryTags, tags: previewTags, featuredDate: keyFor(FEATURED_DAY) };
+  return { entries, entryTags, tags: previewTags, featuredDate: keyFor(FEATURED_DAY), cleanupMerges: previewMerges, usage: previewUsage };
 }
