@@ -6,10 +6,11 @@
 import { useEffect, useState } from "react";
 import { BUCKETS } from "../lib/ai/buckets";
 import { MAX_TAGS_PER_ENTRY } from "../lib/ai/tagMatch";
+import { isDate } from "../lib/entries";
 import { suggestTags } from "../lib/tagIndex";
 import Calendar from "../app/components/Calendar";
 import JournalEntry from "../app/components/JournalEntry";
-import LogoMark from "../app/components/atoms/LogoMark/LogoMark";
+import AppHeader from "../app/components/organisms/AppHeader/AppHeader";
 import TagCleanup from "../app/components/organisms/TagCleanup/TagCleanup";
 import AiUsage from "../app/components/organisms/AiUsage/AiUsage";
 import TrainingStats from "../app/components/organisms/TrainingStats/TrainingStats";
@@ -36,12 +37,14 @@ export default function JournalPreview() {
 
   useEffect(() => {
     const built = buildPreviewFixtures(new Date());
-    const [y, m] = built.featuredDate.split("-").map(Number);
+    const wanted = new URLSearchParams(window.location.search).get("date");
+    const chosen = wanted && isDate(wanted) ? wanted : built.featuredDate;
+    const [y, m] = chosen.split("-").map(Number);
     setFixtures(built);
     setEntries(built.entries);
     setEntryTags(built.entryTags);
     setTags(built.tags);
-    setSelectedDate(built.featuredDate);
+    setSelectedDate(chosen);
     setYear(y);
     setMonth(m - 1);
   }, []);
@@ -100,12 +103,7 @@ export default function JournalPreview() {
   return (
     <main className={pageStyles.main}>
       <div className={styles.frame}>
-        <header className={pageStyles.appHeader}>
-          <div className={pageStyles.brand}>
-            <LogoMark className={pageStyles.logo} />
-            <h1 className={pageStyles.title}>BJJ Log</h1>
-          </div>
-        </header>
+        <AppHeader current="journal" signOut={false} hrefs={{ journal: "/dev", tags: "/dev/tags" }} />
         <div className={styles.columns}>
           <div className={styles.column}>
             <TrainingStats entriesDates={entriesDates} attireByDate={attireByDate} />

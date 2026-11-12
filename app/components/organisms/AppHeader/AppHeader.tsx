@@ -11,14 +11,17 @@ interface AppHeaderProps {
   confirmLeave?: () => boolean;
   /** Hide the sign-out form (the /dev preview has no session). */
   signOut?: boolean;
+  /** Link targets; the /dev preview points them inside /dev. */
+  hrefs?: { journal: string; tags: string };
 }
 
-const LINKS = [
-  { id: "journal", label: "Journal", href: "/" },
-  { id: "tags", label: "Tags", href: "/tags" },
-] as const;
+const DEFAULT_HREFS = { journal: "/", tags: "/tags" };
 
-export default function AppHeader({ current, confirmLeave, signOut = true }: AppHeaderProps) {
+export default function AppHeader({ current, confirmLeave, signOut = true, hrefs = DEFAULT_HREFS }: AppHeaderProps) {
+  const LINKS = [
+    { id: "journal", label: "Journal", href: hrefs.journal },
+    { id: "tags", label: "Tags", href: hrefs.tags },
+  ] as const;
   return (
     <header className={pageStyles.appHeader}>
       <div className={pageStyles.brand}>
