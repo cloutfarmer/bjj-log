@@ -1,0 +1,33 @@
+name: ci
+
+# Owned by this project. Run only checks that are safe and need no production credentials.
+
+on:
+  pull_request:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: build
+        run: npm run build
+      - name: Diff check
+        run: git diff --check
+      - name: Repository scan
+        run: node .agent/repository-scan.mjs

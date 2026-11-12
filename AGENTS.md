@@ -32,7 +32,9 @@ Vercel, with Neon Postgres for storage.
 |---|---|
 | Find where a feature lives | `README.md` |
 | System design or module boundaries | `ARCHITECTURE.md` |
-| Tests or verification | `docs/TESTING.md` |
+| Current readiness or open questions | `docs/STATUS.md` |
+| Tests or verification | `docs/TESTING.md` and `docs/STATUS.md` |
+| Agent limits for this repo | `.agent/policy.yml` and `.agent/lessons.md` |
 | Branches, setup, pull requests, or landing and releasing | `CONTRIBUTING.md` |
 | Database or Neon | `docs/NEON.md` |
 
@@ -90,9 +92,47 @@ are kept outside this repository: ask the user before any production work.
 - Update the canonical doc in the same change as the behavior.
 - Use CSS Modules and the variables in `app/globals.css`. Add no UI library or
   external font.
+- Before planning, run `git fetch origin` and read code from `origin/dev`
+  (`git show origin/dev:<path>` or a fresh worktree), not the local checkout. Rebase a
+  work branch on `origin/dev` before its PR.
+- A check that can't run reports "could not verify", never "nothing found".
 - Run the smallest safe check first: `npm run typecheck`, `npm run lint`,
   `npm run build`, `git diff --check`.
-- `.claude/skills/ponytail-review/` is vendored unchanged (see its `SOURCE`). Don't
-  edit it. `.claude/skills/pr-triage/` wraps it: it runs on each PR, fixes tier 1 and
-  trivial tier 2 findings on the PR branch, and files the rest, as described in
-  [`CONTRIBUTING.md`](CONTRIBUTING.md#automatic-review). Both also run on request.
+- This repo follows [agent-kit](https://github.com/cloutfarmer/agent-kit); `.agent/kit.lock`
+  records the version. The files listed there are managed: don't edit them here. Change
+  the kit, then run its `sync` on a review branch. `.agent/policy.yml` holds this repo's
+  limits. The managed `pr-triage` skill reviews each PR, as described in
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#automatic-review).
+
+## Delegation
+
+The main agent plans, delegates and reviews. The `worker` agent
+(`.claude/agents/worker.md`) does the edits on the cheaper model set in
+`.claude/settings.json`.
+
+- A plan is a numbered list of briefs. Each brief has a goal, the task branch
+  as its base branch, owned paths, steps, a done-check command, and a mark:
+  parallel-safe or sequential.
+- Two briefs are parallel-safe only when their owned paths don't overlap. Run
+  at most three workers at once.
+- After the plan is approved, send every brief to `worker` without asking.
+  Never delegate a design decision, a `design_triggers` change or a
+  `human_only_paths` file; report those to the user.
+- A worker commits on its own worktree branch and never pushes. That commit
+  is allowed by this guide. Merge the branch into the task branch, read the
+  diff, and run the brief's done-check yourself before accepting it.
+- Start a sequential brief only after the briefs it depends on are merged
+  into the task branch. The worker merges the task branch before it edits.
+- When a worker stops or its done-check fails, correct the brief and send it
+  once more. After a second failure, stop and report to the user.
+- Finish with one report: each brief, its done-check result, and anything
+  not verified.
+
+## Session budget
+
+- One task per session. When a task is done, end with "Task done — run /clear
+  before the next task."
+- Context is capped at 300k tokens by the machine setting
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000`; keep it set.
+- Turn off plugins and skills this repo doesn't use (`enabledPlugins` in
+  `.claude/settings.json`).

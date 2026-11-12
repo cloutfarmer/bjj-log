@@ -21,6 +21,10 @@
 # personal tooling and caches. Only reviewed, shared skills are tracked; add each one
 # as its own exception.
 .claude/*
+!.claude/settings.json
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/worker.md
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/ponytail-review/

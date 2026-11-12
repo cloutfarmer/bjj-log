@@ -1,0 +1,9 @@
+# Owned by this project. The kit reads this file and never overwrites it.
+modules: [core, review, triage, delegate]
+base_branch: dev
+ci_job: ci
+scan_command: node .agent/repository-scan.mjs
+human_only_paths: [.env*, .github/**, .agent/policy.yml, .claude/**, db/migrations/**, vercel.json, neon.ts, scripts/**]
+design_triggers: [new dependency, schema change, breaking public API change, auth change]
+never_run: [tests/storage.spec.ts, npm run test:e2e, npm run db:migrate, npm run deploy:prod, scripts/vercel-env.mjs]
+allowed_extra_docs: [docs/NEON.md, docs/images]
