@@ -79,7 +79,10 @@ are kept outside this repository: ask the user before any production work.
   copy untouched.
 - An entry with no text, no session types, and no attire is deleted. The client in
   `app/components/Journal.tsx` and the API routes must apply the same rule.
-- A failed save keeps the draft open in the editor.
+- A failed or refused save keeps the draft open in the editor.
+- A save sends the version it started from, and the API never replaces a newer one.
+- Saved notes stay in page memory (`lib/journalStore.ts`) and responses stay `no-store`.
+  Only unsaved drafts go to browser storage (`lib/drafts.ts`), and sign-out removes them.
 - Dates are stored as `YYYY-MM-DD`, one entry per day.
 - Journal text and credentials never appear in logs, error messages, or test traces.
 

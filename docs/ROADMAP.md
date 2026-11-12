@@ -36,4 +36,4 @@
 
 - [ ] **Print / share view** — clean, printable layout of a date range's entries. Useful for reviewing before a competition or belt test.
 
-- [ ] **Offline use** — open the journal and keep unsaved drafts without a connection.
+- [ ] **Offline use** — open the journal without a connection. Unsaved drafts are already kept in the browser; saved notes are not.

@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { isDate, parseEntry } from "../../lib/entries";
+import { clearAllDrafts, clearDraft } from "../../lib/drafts";
+import { isDate, isEmptyEntry, parseEntry } from "../../lib/entries";
+import { SaveConflictError, parseSavedEntry } from "../../lib/entrySync";
+import { applySaved, loadEntries, pauseRechecks, useJournal } from "../../lib/journalStore";
 import Calendar from "./Calendar";
 import JournalEntry from "./JournalEntry";
 import LogoMark from "./atoms/LogoMark/LogoMark";
 import TrainingStats from "./organisms/TrainingStats/TrainingStats";
 import styles from "../page.module.css";
 
-import type { Attire, JournalEntryData } from "../types";
+import type { Attire, JournalEntryData, SavedEntry } from "../types";
 
 const STORAGE_KEY = "bjj-log-entries";
 const EMPTY_ENTRY: JournalEntryData = { text: "", sessionTypes: [], attire: null };
@@ -18,32 +21,32 @@ export default function Home() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [entries, setEntries] = useState<Record<string, JournalEntryData>>({});
+  // The journal lives in a store shared by every screen, so it loads once per visit.
+  const journal = useJournal();
+  const entries = journal.entries;
+  const mounted = journal.ready;
   const [recentCount, setRecentCount] = useState(5);
   const [dirty, setDirty] = useState(false);
   function selectDate(date: string) {
     if (date === selectedDate) return;
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
+    if (dirty && selectedDate) clearDraft(selectedDate);
     setDirty(false); setSelectedDate(date);
   }
-  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [localNotes, setLocalNotes] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
 
-  async function refresh() {
-    const response = await fetch("/api/entries", { cache: "no-store" });
-    if (!response.ok) throw new Error("Could not load notes. Check your connection and sign in again if needed.");
-    const data: Record<string, JournalEntryData> = await response.json();
-    setEntries(data);
-    setMounted(true);
-  }
+  // An open draft must not have its entry replaced under it by a background check.
+  useEffect(() => {
+    pauseRechecks(dirty);
+    return () => pauseRechecks(false);
+  }, [dirty]);
 
   useEffect(() => {
     const date = new Date();
     setSelectedDate(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`);
-    refresh().catch((cause: Error) => setError(cause.message));
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw && raw !== "{}") setLocalNotes(raw);
@@ -70,24 +73,32 @@ export default function Home() {
     });
   }, []);
 
-  async function handleSave(dateStr: string, entry: JournalEntryData) {
+  /** baseVersion is the saved version the draft started from; the server refuses a save over any other. */
+  async function handleSave(dateStr: string, entry: JournalEntryData, baseVersion: string | null | undefined) {
     setBusy(true);
     setNotice("");
     try {
       const response = await fetch("/api/entries", {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: dateStr, entry }),
+        body: JSON.stringify({ date: dateStr, entry, baseVersion }),
       });
+      if (response.status === 409) {
+        const body: unknown = await response.json().catch(() => null);
+        const current = body && typeof body === "object" ? parseSavedEntry((body as { current?: unknown }).current) : null;
+        throw new SaveConflictError(current);
+      }
       if (!response.ok) throw new Error("Could not save. Your draft is still open; check your connection or sign in again, then retry.");
-      setEntries(previous => {
-        const updated = { ...previous };
-        // Must match the server's rule in app/api/entries/route.ts, attire included.
-        if (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire) delete updated[dateStr];
-        else updated[dateStr] = entry;
-        return updated;
-      });
+      const result: unknown = await response.json().catch(() => null);
+      const version = result && typeof result === "object" ? (result as { version?: unknown }).version : undefined;
+      // isEmptyEntry is also the server's rule in app/api/entries/route.ts.
+      applySaved(dateStr, isEmptyEntry(entry) ? null : { ...entry, version: typeof version === "string" ? version : "" });
       setNotice("Saved to your journal.");
     } finally { setBusy(false); }
+  }
+
+  function handleAdopt(dateStr: string, current: SavedEntry | null) {
+    applySaved(dateStr, current);
+    setNotice("");
   }
 
   async function importNotes() {
@@ -100,7 +111,7 @@ export default function Home() {
       });
       if (!response.ok) throw new Error("Could not import notes. Your original browser notes are unchanged.");
       const result: { imported: number } = await response.json();
-      await refresh();
+      await loadEntries({ full: true });
       setLocalNotes(null);
       setNotice(`Imported ${result.imported} notes. Existing cloud notes were kept; browser originals remain untouched.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Import failed."); }
@@ -126,16 +137,18 @@ export default function Home() {
   const entriesDates = new Set(Object.keys(entries));
   const attireByDate = new Map(
     Object.entries(entries)
-      .filter((pair): pair is [string, JournalEntryData & { attire: Attire }] => pair[1].attire !== null)
+      .filter((pair): pair is [string, SavedEntry & { attire: Attire }] => pair[1].attire !== null)
       .map(([date, entry]) => [date, entry.attire]),
   );
+
+  const selectedEntry = selectedDate && Object.hasOwn(entries, selectedDate) ? entries[selectedDate] : undefined;
 
   return (
     <main className={styles.main}>
       <header className={styles.appHeader}><div className={styles.brand}><LogoMark className={styles.logo} /><h1 className={styles.title}>BJJ Log</h1></div>
-      <form action="/api/logout" method="post" onSubmit={event => { if (dirty && !window.confirm("Discard unsaved changes and sign out?")) event.preventDefault(); }}><button className={styles.signOut} type="submit">Sign out</button></form></header>
-      {error && <p role="alert" className={styles.alert}>{error}</p>}
-      {!mounted && <p className={styles.loading}>Loading your notes… <button onClick={() => { setError(""); refresh().catch((cause: Error) => setError(cause.message)); }}>Retry</button></p>}
+      <form action="/api/logout" method="post" onSubmit={event => { if (dirty && !window.confirm("Discard unsaved changes and sign out?")) event.preventDefault(); else clearAllDrafts(); }}><button className={styles.signOut} type="submit">Sign out</button></form></header>
+      {(error || journal.error) && <p role="alert" className={styles.alert}>{error || journal.error}</p>}
+      {!mounted && <p className={styles.loading}>Loading your notes… <button onClick={() => { setError(""); void loadEntries(); }}>Retry</button></p>}
       {notice && <p role="status" className={styles.status}>{notice}</p>}
       {pendingCount > 0 && <div className={styles.importNotice}>
         <p>{pendingCount} browser {pendingCount === 1 ? "note is" : "notes are"} missing from your journal. Import keeps existing journal notes.</p>
@@ -157,8 +170,10 @@ export default function Home() {
         </fieldset>
         <div className={styles.content}><div className={styles.card}><JournalEntry
           selectedDate={selectedDate}
-          savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
+          savedEntry={selectedEntry ?? EMPTY_ENTRY}
+          savedVersion={selectedEntry ? selectedEntry.version || undefined : null}
           onSave={handleSave}
+          onAdopt={handleAdopt}
           onDirtyChange={setDirty}
         /></div><aside className={`${styles.recent} ${styles.card}`}><h2>Recent entries</h2>{Object.keys(entries).sort().reverse().slice(0,recentCount).map(date => <button key={date} className={styles.recentItem} onClick={() => selectDate(date)} aria-current={date === selectedDate ? "date" : undefined}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"})}</strong><span>{entries[date].text || "Session logged"}</span><small>{[entries[date].attire === "gi" ? "Gi" : entries[date].attire === "nogi" ? "No-Gi" : "", ...entries[date].sessionTypes].filter(Boolean).join(" · ")}</small></button>)}{!Object.keys(entries).length && <p>Your training notes will appear here.</p>}{Object.keys(entries).length > recentCount && <button className={styles.showMore} onClick={() => setRecentCount(n=>n+5)}>Show more</button>}</aside></div>
       </div>}

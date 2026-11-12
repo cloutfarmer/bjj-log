@@ -9,10 +9,11 @@ import JournalEntry from "../app/components/JournalEntry";
 import LogoMark from "../app/components/atoms/LogoMark/LogoMark";
 import TrainingStats from "../app/components/organisms/TrainingStats/TrainingStats";
 import pageStyles from "../app/page.module.css";
+import { SaveConflictError } from "../lib/entrySync";
 import { buildPreviewFixtures } from "./fixtures";
 import styles from "./JournalPreview.module.css";
 
-import type { JournalEntryData } from "../app/types";
+import type { JournalEntryData, SavedEntry } from "../app/types";
 
 const EMPTY_ENTRY: JournalEntryData = { text: "", sessionTypes: [], attire: null };
 const noop = () => undefined;
@@ -26,6 +27,8 @@ export default function JournalPreview() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [year, setYear] = useState(0);
   const [month, setMonth] = useState(0);
+  // Makes the next save answer as if the day had been changed on another device.
+  const [conflictNext, setConflictNext] = useState(false);
 
   useEffect(() => {
     const built = buildPreviewFixtures(new Date());
@@ -42,9 +45,21 @@ export default function JournalPreview() {
   // Saves stay in memory, so the editor can be tried without a server. An empty entry is
   // deleted, as in app/components/Journal.tsx.
   async function handleSave(date: string, entry: JournalEntryData) {
+    if (conflictNext) {
+      setConflictNext(false);
+      throw new SaveConflictError({
+        text: "Made-up note from another device.\nKnee cut: pin the far hip first.",
+        sessionTypes: ["open-mat"],
+        attire: "nogi",
+        version: "",
+      });
+    }
+    store(date, entry);
+  }
+  function store(date: string, entry: JournalEntryData | SavedEntry | null) {
     setEntries((previous) => {
       const updated = { ...previous };
-      if (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire) delete updated[date];
+      if (!entry || (!entry.text.trim() && !entry.sessionTypes.length && !entry.attire)) delete updated[date];
       else updated[date] = entry;
       return updated;
     });
@@ -91,9 +106,23 @@ export default function JournalPreview() {
                 selectedDate={selectedDate}
                 savedEntry={selectedDate ? entries[selectedDate] ?? EMPTY_ENTRY : EMPTY_ENTRY}
                 onSave={handleSave}
+                onAdopt={store}
                 onDirtyChange={noop}
               />
             </div>
+            <label className={styles.previewSwitch}>
+              <input type="checkbox" checked={conflictNext} onChange={(event) => setConflictNext(event.target.checked)} />
+              Next save conflicts
+            </label>
+            <button
+              type="button"
+              className={styles.previewSwitch}
+              onClick={() => {
+                if (selectedDate) store(selectedDate, { text: "Made-up background change.", sessionTypes: ["drilling"], attire: null });
+              }}
+            >
+              Change the saved copy
+            </button>
           </div>
         </div>
       </div>

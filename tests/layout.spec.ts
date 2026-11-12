@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 for (const width of [390, 1100]) {
   test(`journal layout and import eligibility at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    const cloud = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`2026-10-${20+i}`, { text: `Note ${i}`, sessionTypes: ['class'], attire: 'gi' }]));
+    const cloud = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`2026-10-${20+i}`, { text: `Note ${i}`, sessionTypes: ['class'], attire: 'gi', version: `202610${20+i}120000000000` }]));
     await page.route('**/api/entries', route => route.fulfill({ json: cloud }));
     await page.goto('/');
     if (await page.getByLabel('Your private journal password').isVisible()) {
