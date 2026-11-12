@@ -114,8 +114,7 @@ Each entry gives the date, environment, what ran, and the result.
   `loadTagContext`, the array inserts in `saveJobTags` and `saveUserTags`) has not run
   against a database. Load `/tags`, add and remove a tag, and auto-tag a note on LOCAL.
 - Tag quality on real notes is only partly good. With the version 3 prompt every note got
-  plausible tags, but three things were seen and not fixed: a note that mentions one
-  existing tag in passing gets only that tag, because a text match skips the model; the
+  plausible tags, but two things were seen and not fixed: the
   model sometimes returns no tags for a note it tagged on another run, and an empty
   result is saved; and tag names multiply ("collar choke", "gi choke", "lapel choke").
 - Tag cleanup suggestions were poor on the one real list tried: two of three proposed
