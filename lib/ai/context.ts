@@ -5,18 +5,18 @@ import type { JournalEntryData } from "../../app/types";
 export interface NoteForContext {
   date: string;
   entry: JournalEntryData;
-  tag: string | null;
+  tags: string[];
 }
 
 /** The one compact line format, so every job spends as few input tokens as possible. */
 export function compactNote(note: NoteForContext): string {
-  const { date, entry, tag } = note;
+  const { date, entry, tags } = note;
   const text = stripNextItems(entry.text).replace(/\s+/g, " ").replace(/\|/g, "/").trim();
   const parts = [
     date,
     entry.attire ?? "neither",
     entry.sessionTypes.length ? entry.sessionTypes.join("+") : "-",
-    tag ?? "-",
+    tags.length ? tags.join("+") : "-",
     text,
   ];
   let line = parts.join(" | ");
@@ -47,11 +47,9 @@ export interface NoteCounts {
 export function countNotes(notes: NoteForContext[], tagBuckets: Record<string, string>): NoteCounts {
   const counts: NoteCounts = { notes: notes.length, tags: {}, buckets: {}, nextOpen: 0, nextDone: 0 };
   for (const note of notes) {
-    if (note.tag) {
-      counts.tags[note.tag] = (counts.tags[note.tag] ?? 0) + 1;
-      const bucket = Object.prototype.hasOwnProperty.call(tagBuckets, note.tag)
-        ? tagBuckets[note.tag]
-        : "other";
+    for (const tag of note.tags) {
+      counts.tags[tag] = (counts.tags[tag] ?? 0) + 1;
+      const bucket = Object.prototype.hasOwnProperty.call(tagBuckets, tag) ? tagBuckets[tag] : "other";
       counts.buckets[bucket] = (counts.buckets[bucket] ?? 0) + 1;
     }
     for (const item of parseNextItems(note.entry.text)) {

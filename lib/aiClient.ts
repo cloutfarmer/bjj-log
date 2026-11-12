@@ -3,15 +3,17 @@
  * journal must work exactly as before when the routes are missing or unavailable. */
 
 export type TagSource = "code" | "ai" | "user";
-export type EntryTag = { tag: string | null; source: TagSource };
+export type EntryTag = { name: string; source: TagSource };
+export type EntryTags = { tags: EntryTag[]; byUser: boolean };
 export type TagState = {
   available: boolean;
-  entryTags: Record<string, EntryTag>;
+  entryTags: Record<string, EntryTags>;
   tags: Record<string, string>;
   pending: string[];
+  pendingCount: number;
   cleanupDue: boolean;
 };
-export type TagResult = { tag: string | null; bucket: string | null; source: TagSource };
+export type TagResult = { tags: EntryTag[]; byUser: boolean; buckets: Record<string, string> };
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -26,8 +28,8 @@ function isSource(value: unknown): value is TagSource {
 /** Checks the response by hand: the server is trusted, but a stale deploy must not crash the page. */
 function parseTagState(value: unknown): TagState | null {
   if (!isRecord(value)) return null;
-  const { available, entryTags, tags, pending, cleanupDue } = value;
-  if (typeof available !== "boolean" || typeof cleanupDue !== "boolean") return null;
+  const { available, entryTags, tags, pending, pendingCount, cleanupDue } = value;
+  if (typeof available !== "boolean" || typeof cleanupDue !== "boolean" || typeof pendingCount !== "number") return null;
   if (!isRecord(entryTags) || !isRecord(tags) || !Array.isArray(pending)) return null;
   const cleanPending: string[] = [];
   for (const date of pending) {
@@ -40,20 +42,36 @@ function parseTagState(value: unknown): TagState | null {
     if (typeof bucket !== "string") return null;
     cleanTags[name] = bucket;
   }
-  const cleanEntryTags: Record<string, EntryTag> = {};
+  const cleanEntryTags: Record<string, EntryTags> = {};
   for (const [date, item] of Object.entries(entryTags)) {
-    if (!isRecord(item) || !isSource(item.source)) return null;
-    if (item.tag !== null && typeof item.tag !== "string") return null;
-    cleanEntryTags[date] = { tag: item.tag, source: item.source };
+    if (!isRecord(item) || typeof item.byUser !== "boolean") return null;
+    const list = parseEntryTagList(item.tags);
+    if (!list) return null;
+    cleanEntryTags[date] = { tags: list, byUser: item.byUser };
   }
-  return { available, entryTags: cleanEntryTags, tags: cleanTags, pending: cleanPending, cleanupDue };
+  return { available, entryTags: cleanEntryTags, tags: cleanTags, pending: cleanPending, pendingCount, cleanupDue };
+}
+
+function parseEntryTagList(value: unknown): EntryTag[] | null {
+  if (!Array.isArray(value)) return null;
+  const list: EntryTag[] = [];
+  for (const item of value) {
+    if (!isRecord(item) || typeof item.name !== "string" || !isSource(item.source)) return null;
+    list.push({ name: item.name, source: item.source });
+  }
+  return list;
 }
 
 function parseTagResult(value: unknown): TagResult | null {
-  if (!isRecord(value) || !isSource(value.source)) return null;
-  if (value.tag !== null && typeof value.tag !== "string") return null;
-  if (value.bucket !== null && typeof value.bucket !== "string") return null;
-  return { tag: value.tag, bucket: value.bucket, source: value.source };
+  if (!isRecord(value) || typeof value.byUser !== "boolean" || !isRecord(value.buckets)) return null;
+  const tags = parseEntryTagList(value.tags);
+  if (!tags) return null;
+  const buckets: Record<string, string> = {};
+  for (const [name, bucket] of Object.entries(value.buckets)) {
+    if (typeof bucket !== "string") return null;
+    buckets[name] = bucket;
+  }
+  return { tags, byUser: value.byUser, buckets };
 }
 
 async function send(method: "POST" | "PUT", body: unknown): Promise<TagResult | null> {
@@ -100,9 +118,9 @@ export function requestTag(date: string): Promise<TagResult | null> {
   return send("POST", { date });
 }
 
-/** `tag: null` removes the tag; the server stores that as removed-by-user so it is never re-tagged. */
-export function saveUserTag(date: string, tag: string | null, bucket?: string): Promise<TagResult | null> {
-  return send("PUT", bucket === undefined ? { date, tag } : { date, tag, bucket });
+/** Replaces the whole tag set by hand; an empty list removes every tag and no job re-tags the entry. */
+export function saveUserTags(date: string, tags: { name: string; bucket?: string }[]): Promise<TagResult | null> {
+  return send("PUT", { date, tags });
 }
 
 export type TagMerge = { from: string; into: string };
