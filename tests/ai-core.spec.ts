@@ -115,6 +115,23 @@ test("tagNote parses fenced JSON, allows an empty list, rejects junk", () => {
   expect(extractJson("nothing")).toBeUndefined();
 });
 
+test("extractJson reads the first complete JSON value", () => {
+  expect(extractJson('{"a":1}')).toEqual({ a: 1 });
+  expect(extractJson("[1,2]")).toEqual([1, 2]);
+  expect(extractJson('```json\n{"a":[1]}\n```')).toEqual({ a: [1] });
+  expect(extractJson('Here you go: [{"from":"a","into":"b"}] Note: [] means none.')).toEqual([
+    { from: "a", into: "b" },
+  ]);
+  expect(extractJson('{"tags":[{"tag":"knee cut"}]}\n\nI chose this because the note says "knee cut" (a pass).')).toEqual({
+    tags: [{ tag: "knee cut" }],
+  });
+  expect(extractJson('Result: [{"from":"a ] \\" b","to":"c"}] done [x].')).toEqual([{ from: 'a ] " b', to: "c" }]);
+  expect(extractJson('{"tags":[{"tag":"knee cut"},{"tag":"half gu')).toBeUndefined();
+  expect(extractJson("no json here")).toBeUndefined();
+  // Accepted cost: an unclosed bracket in prose before the JSON means no result.
+  expect(extractJson('see [1 then {"a":1}')).toBeUndefined();
+});
+
 test("tagNote keeps at most 3 tags", () => {
   const items = ["a1", "b2", "c3", "d4", "e5"].map((tag) => ({ tag }));
   const out = JOBS.tagNote.parseOutput(JSON.stringify({ tags: items }), { text: "x", tags: [] });
