@@ -144,6 +144,17 @@ test("cleanNote drops unknown edits and caps at 10", () => {
   expect(JOBS.cleanNote.parseOutput('{"a":1}', { text })).toBeNull();
 });
 
+test("cleanNote and tagCleanup leave room for a full reply", () => {
+  // Smaller caps cut real replies short, which then fail to parse.
+  expect(JOBS.cleanNote.maxOutputTokens).toBeGreaterThanOrEqual(400);
+  expect(JOBS.tagCleanup.maxOutputTokens).toBeGreaterThanOrEqual(500);
+});
+
+test("cleanNote returns null for a reply cut off mid-JSON", () => {
+  const cut = '[{"from":"teh","to":"the"},{"from":"rec';
+  expect(JOBS.cleanNote.parseOutput(cut, { text: "teh guard and recieve" })).toBeNull();
+});
+
 test("tagCleanup drops unknown names and self-merges", () => {
   const tags = [
     { name: "armbar", count: 5 },

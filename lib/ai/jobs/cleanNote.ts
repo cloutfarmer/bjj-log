@@ -15,7 +15,7 @@ export const cleanNote: Job<CleanNoteArgs, CleanNoteOut> = {
   system:
     "List spelling and grammar mistakes in this Brazilian jiu-jitsu training note; never rephrase or change meaning or style, and leave technique names alone unless clearly misspelled. " +
     'Reply with JSON only: [{"from":"exact text","to":"fix"}], at most 10, [] if none.',
-  maxOutputTokens: 200,
+  maxOutputTokens: 500, // a cap, not a spend; ten edits need about 300 tokens
   buildInput: ({ text }) => text.slice(0, 4000),
   parseOutput(text, { text: note }) {
     let data = extractJson(text);

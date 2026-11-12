@@ -15,7 +15,7 @@ export const tagCleanup: Job<TagCleanupArgs, TagCleanupOut> = {
   system:
     "These are tags from a jiu-jitsu journal with usage counts; suggest merges only for duplicates, misspellings or variants of the same thing, merging into the more used or better spelled name. " +
     'Reply with JSON only: [{"from":"...","into":"..."}], [] if none.',
-  maxOutputTokens: 300,
+  maxOutputTokens: 600, // a cap, not a spend; about 26 tokens per merge
   buildInput: ({ tags }) =>
     [...tags]
       .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
